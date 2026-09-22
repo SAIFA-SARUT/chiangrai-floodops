@@ -1,0 +1,8 @@
+.dot.unknown{background:#8493a0}
+.status-badge.unknown{background:#eef1f3;color:#596874}
+.status-badge.unknown i{background:#8493a0}
+.equipment-marker.unknown{background:#8493a0}
+
+@media (max-width:1100px){
+  .map-toolbar select#map-basin-filter{display:none}
+}

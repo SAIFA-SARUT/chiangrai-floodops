@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="ระบบติดตามอุปกรณ์ป้องกันและบรรเทาอุทกภัยขององค์กรปกครองส่วนท้องถิ่น จังหวัดเชียงราย" />
+  <title>Chiang Rai FloodOps</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/v3.css" />
+</head>
+<body>
+  <div id="toast-root" class="toast-root" aria-live="polite"></div>
+
+  <section id="login-screen" class="login-screen hidden">
+    <div class="login-art">
+      <div class="brand-mark large">CR</div>
+      <div>
+        <p class="eyebrow">CHIANG RAI FLOOD OPERATIONS</p>
+        <h1>ทุกทรัพยากร<br>พร้อมรับมือทุกสถานการณ์</h1>
+        <p>ศูนย์กลางข้อมูลอุปกรณ์ป้องกันและบรรเทาอุทกภัยขององค์กรปกครองส่วนท้องถิ่น จังหวัดเชียงราย</p>
+      </div>
+      <div class="login-stat"><strong>18</strong><span>อำเภอในจังหวัดเชียงราย</span></div>
+    </div>
+    <div class="login-panel">
+      <form id="login-form" class="login-card">
+        <div class="mobile-brand"><div class="brand-mark">CR</div><b>FloodOps</b></div>
+        <p class="eyebrow">สำหรับเจ้าหน้าที่</p>
+        <h2>เข้าสู่ระบบ</h2>
+        <p class="muted">ใช้บัญชีที่ผู้ดูแลระบบกำหนดให้</p>
+        <label>อีเมล<input id="login-email" type="email" autocomplete="email" placeholder="name@organization.go.th" required></label>
+        <label>รหัสผ่าน<input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••" required></label>
+        <button class="btn primary wide" type="submit">เข้าสู่ระบบ</button>
+        <button id="demo-login" class="btn ghost wide" type="button">ทดลองใช้งานโหมดสาธิต</button>
+        <p id="config-hint" class="form-hint"></p>
+      </form>
+    </div>
+  </section>
+
+  <div id="app-shell" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">CR</div><div><b>FloodOps</b><small>จังหวัดเชียงราย</small></div></div>
+      <nav id="main-nav" aria-label="เมนูหลัก">
+        <button data-view="dashboard" class="nav-item active"><span>◫</span>ภาพรวม</button>
+        <button data-view="map" class="nav-item"><span>⌖</span>แผนที่ติดตาม</button>
+        <button data-view="equipment" class="nav-item"><span>▤</span>คลังอุปกรณ์</button>
+        <button data-view="organizations" class="nav-item admin-only"><span>⌂</span>หน่วยงาน อปท.</button>
+        <button data-view="users" class="nav-item super-only"><span>♙</span>ผู้ใช้งาน</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div id="connection-status" class="connection-pill"><i></i><span>กำลังตรวจสอบระบบ</span></div>
+        <div class="user-mini">
+          <div id="user-avatar" class="avatar">ผด</div>
+          <div><b id="user-name">ผู้ดูแลระบบ</b><small id="user-org">ศูนย์บัญชาการจังหวัด</small></div>
+          <button id="logout-btn" title="ออกจากระบบ">↪</button>
+        </div>
+      </div>
+    </aside>
+
+    <header class="topbar">
+      <button id="mobile-menu" class="icon-btn">☰</button>
+      <div><p id="page-kicker" class="eyebrow">ศูนย์บัญชาการ</p><h1 id="page-title">ภาพรวมสถานการณ์</h1></div>
+      <div class="top-actions"><span id="today-label"></span><button id="quick-add" class="btn primary">＋ เพิ่มอุปกรณ์</button></div>
+    </header>
+
+    <main class="workspace">
+      <section id="view-dashboard" class="view active">
+        <div class="section-head"><div><h2>ความพร้อมของทรัพยากร</h2><p>ข้อมูลล่าสุดจากองค์กรปกครองส่วนท้องถิ่นในจังหวัดเชียงราย</p></div><button class="btn outline" data-action="refresh">↻ อัปเดตข้อมูล</button></div>
+        <div id="stat-grid" class="stat-grid"></div>
+        <div class="dashboard-grid">
+          <article class="panel chart-panel"><div class="panel-head"><div><h3>อุปกรณ์แยกตามประเภท</h3><p>จำนวนรายการที่ขึ้นทะเบียน</p></div></div><div class="chart-wrap"><canvas id="type-chart"></canvas></div></article>
+          <article class="panel"><div class="panel-head"><div><h3>ความพร้อมใช้งาน</h3><p>สถานะล่าสุดของทุกหน่วยงาน</p></div></div><div id="status-breakdown" class="status-breakdown"></div></article>
+          <article class="panel span-2"><div class="panel-head"><div><h3>รายการที่ต้องดำเนินการ</h3><p>อุปกรณ์ที่ไม่พร้อมใช้งานหรือใกล้ถึงวันตรวจสอบ</p></div><button class="text-btn" data-go="equipment">ดูทั้งหมด →</button></div><div id="attention-table" class="table-wrap"></div></article>
+        </div>
+      </section>
+
+      <section id="view-map" class="view map-view">
+        <div class="map-toolbar">
+          <div class="search-box"><span>⌕</span><input id="map-search" placeholder="ค้นหาชื่ออุปกรณ์ หน่วยงาน หรืออำเภอ"></div>
+          <select id="map-basin-filter"><option value="">ทุกลุ่มน้ำ</option></select>
+          <select id="map-type-filter"><option value="">ทุกประเภท</option></select>
+          <select id="map-status-filter"><option value="">ทุกสถานะ</option></select>
+          <button id="gps-search" class="btn outline">◎ ใช้ตำแหน่ง GPS</button>
+          <button id="clear-map-search" class="btn ghost">ล้าง</button>
+        </div>
+        <div id="map"></div>
+        <aside id="nearest-panel" class="nearest-panel">
+          <div class="panel-head"><div><p class="eyebrow">ค้นหาใกล้จุดเกิดเหตุ</p><h3>อุปกรณ์ที่ใกล้ที่สุด</h3></div><button id="close-nearest" class="icon-btn">×</button></div>
+          <label>รัศมีค้นหา <span><input id="radius-input" type="number" min="1" max="100" value="15"> กม.</span></label>
+          <div id="nearest-list"><p class="empty">คลิกบนแผนที่หรือใช้ตำแหน่ง GPS เพื่อเริ่มค้นหา</p></div>
+        </aside>
+      </section>
+
+      <section id="view-equipment" class="view">
+        <div class="section-head"><div><h2>คลังอุปกรณ์</h2><p>ตรวจสอบและปรับปรุงข้อมูลทรัพยากรของแต่ละ อปท.</p></div><button class="btn primary" data-action="add-equipment">＋ เพิ่มอุปกรณ์</button></div>
+        <div class="filter-bar"><div class="search-box grow"><span>⌕</span><input id="equipment-search" placeholder="ค้นหารหัส ชื่ออุปกรณ์ ทะเบียนรถ หรือหน่วยงาน"></div><select id="equipment-basin-filter"><option value="">ทุกลุ่มน้ำ</option></select><select id="equipment-type-filter"><option value="">ทุกประเภท</option></select><select id="equipment-status-filter"><option value="">ทุกสถานะ</option></select></div>
+        <div class="panel"><div id="equipment-table" class="table-wrap"></div><div id="equipment-count" class="table-foot"></div></div>
+      </section>
+
+      <section id="view-organizations" class="view">
+        <div class="section-head"><div><h2>หน่วยงาน อปท.</h2><p>หน่วยงานที่ร่วมรายงานข้อมูลในระบบ</p></div><button class="btn primary" data-action="add-organization">＋ เพิ่มหน่วยงาน</button></div>
+        <div id="organization-grid" class="organization-grid"></div>
+      </section>
+
+      <section id="view-users" class="view">
+        <div class="section-head"><div><h2>ผู้ใช้งานและสิทธิ์</h2><p>กำหนดบทบาทและหน่วยงานให้บัญชีที่สมัครใน Supabase</p></div></div>
+        <div class="notice">บัญชีผู้ใช้ต้องถูกสร้างใน Supabase Authentication ก่อน จากนั้น Super Admin จึงกำหนดหน่วยงานและบทบาทในหน้านี้</div>
+        <div class="panel"><div id="users-table" class="table-wrap"></div></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="entity-dialog">
+    <form id="entity-form" method="dialog">
+      <div class="dialog-head"><div><p id="dialog-kicker" class="eyebrow">จัดการข้อมูล</p><h2 id="dialog-title">เพิ่มอุปกรณ์</h2></div><button class="icon-btn" value="cancel" formnovalidate>×</button></div>
+      <div id="dialog-fields" class="form-grid"></div>
+      <div class="dialog-actions"><button class="btn ghost" value="cancel" formnovalidate>ยกเลิก</button><button id="save-entity" class="btn primary" value="default">บันทึกข้อมูล</button></div>
+    </form>
+  </dialog>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
