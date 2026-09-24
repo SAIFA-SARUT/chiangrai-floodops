@@ -67,6 +67,15 @@ export class DataService {
   async saveEquipment(record) {
     if (this.demo) {
       const db = demoDb();
+      if (!record.code) {
+        const org = db.organizations.find(x => x.id === record.organization_id);
+        if (!org?.short_code) throw new Error('ไม่พบรหัสย่อของหน่วยงาน');
+        const last = db.equipment
+          .filter(x => x.organization_id === record.organization_id && new RegExp(`^${org.short_code}-\\d{4}$`).test(x.code || ''))
+          .reduce((max, x) => Math.max(max, Number(x.code.slice(-4))), 0);
+        if (last >= 9999) throw new Error('เลขลำดับอุปกรณ์ของหน่วยงานครบ 9999 รายการแล้ว');
+        record.code = `${org.short_code}-${String(last + 1).padStart(4, '0')}`;
+      }
       const item = { ...record, id: record.id || crypto.randomUUID() };
       const idx = db.equipment.findIndex(x => x.id === item.id);
       idx >= 0 ? db.equipment.splice(idx, 1, item) : db.equipment.unshift(item);

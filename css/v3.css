@@ -2,6 +2,8 @@
 .status-badge.unknown{background:#eef1f3;color:#596874}
 .status-badge.unknown i{background:#8493a0}
 .equipment-marker.unknown{background:#8493a0}
+.action-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.view.exporting{display:block!important;width:1200px;padding:24px;background:#f3f6f8}
 
 .user-mini{grid-template-columns:36px 1fr}
 .user-mini .logout-btn{
@@ -31,4 +33,9 @@
 
 @media (max-width:1100px){
   .map-toolbar select#map-basin-filter{display:none}
+}
+
+@media (max-width:720px){
+  .section-head .action-group{width:100%;justify-content:flex-start;margin-top:10px}
+  .section-head .action-group .btn{flex:1;white-space:nowrap}
 }

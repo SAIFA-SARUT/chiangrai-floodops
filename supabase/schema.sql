@@ -8,7 +8,9 @@ create type public.equipment_status as enum ('ready','deployed','maintenance','u
 
 create table public.organizations (
   id uuid primary key default gen_random_uuid(),
-  name text not null unique,
+  official_code text not null unique check (official_code ~ '^\\d{8}$'),
+  short_code text not null unique check (short_code ~ '^\\d{4}$'),
+  name text not null,
   short_name text not null,
   district text not null,
   phone text,
@@ -37,7 +39,8 @@ create table public.equipment_types (
 
 create table public.equipment (
   id uuid primary key default gen_random_uuid(),
-  code text not null unique,
+  code text not null unique check (code ~ '^\\d{4}-\\d{4}$'),
+  legacy_code text unique,
   name text not null,
   equipment_type_id uuid not null references public.equipment_types(id),
   organization_id uuid not null references public.organizations(id),
@@ -61,6 +64,12 @@ create table public.equipment (
   updated_by uuid references auth.users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+-- ตัวนับแยกตาม อปท. เลขที่ออกแล้วจะไม่ถูกลดหรือนำกลับมาใช้ใหม่
+create table public.equipment_code_sequences (
+  organization_id uuid primary key references public.organizations(id) on delete restrict,
+  last_value integer not null default 0 check (last_value between 0 and 9999)
 );
 
 create table public.audit_logs (
@@ -102,6 +111,35 @@ begin
   return new;
 end $$;
 
+create or replace function public.assign_equipment_code()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare
+  v_short_code text;
+  v_next integer;
+begin
+  if new.code is not null and btrim(new.code) <> '' then
+    return new;
+  end if;
+
+  select short_code into v_short_code
+  from public.organizations where id=new.organization_id and active=true;
+  if v_short_code is null then
+    raise exception 'ไม่พบรหัสย่อของหน่วยงาน หรือหน่วยงานถูกระงับการใช้งาน';
+  end if;
+
+  insert into public.equipment_code_sequences(organization_id,last_value)
+  values(new.organization_id,1)
+  on conflict (organization_id) do update
+    set last_value=public.equipment_code_sequences.last_value+1
+  returning last_value into v_next;
+
+  if v_next > 9999 then
+    raise exception 'เลขลำดับอุปกรณ์ของหน่วยงาน % เกิน 9999 รายการ',v_short_code;
+  end if;
+  new.code := v_short_code || '-' || lpad(v_next::text,4,'0');
+  return new;
+end $$;
+
 create or replace function public.log_equipment_change()
 returns trigger language plpgsql security definer set search_path=public as $$
 begin
@@ -112,6 +150,7 @@ end $$;
 
 create trigger organizations_touch before update on public.organizations for each row execute function public.touch_updated_at();
 create trigger profiles_touch before update on public.profiles for each row execute function public.touch_updated_at();
+create trigger equipment_assign_code before insert on public.equipment for each row execute function public.assign_equipment_code();
 create trigger equipment_actor before insert or update on public.equipment for each row execute function public.set_equipment_actor();
 create trigger equipment_audit after insert or update or delete on public.equipment for each row execute function public.log_equipment_change();
 
@@ -128,6 +167,7 @@ alter table public.organizations enable row level security;
 alter table public.profiles enable row level security;
 alter table public.equipment_types enable row level security;
 alter table public.equipment enable row level security;
+alter table public.equipment_code_sequences enable row level security;
 alter table public.audit_logs enable row level security;
 
 create policy "authenticated read organizations" on public.organizations for select to authenticated using (true);
@@ -145,6 +185,7 @@ create policy "staff update own organization equipment" on public.equipment for 
 create policy "staff delete own organization equipment" on public.equipment for delete to authenticated using (public.is_system_admin() or organization_id=public.current_user_org());
 
 create policy "admins read audit logs" on public.audit_logs for select to authenticated using (public.is_system_admin());
+create policy "admins read equipment sequences" on public.equipment_code_sequences for select to authenticated using (public.is_system_admin());
 
 -- After creating the first user in Authentication, promote it once:
 -- update public.profiles set role='super_admin', active=true where email='YOUR_ADMIN_EMAIL';

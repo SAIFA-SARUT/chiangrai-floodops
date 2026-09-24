@@ -80,6 +80,10 @@ function bindGlobalEvents() {
   $('#gps-search').addEventListener('click',useGps);
   $('#clear-map-search').addEventListener('click',clearMapSearch);
   $('#close-nearest').addEventListener('click',()=>$('#nearest-panel').classList.remove('open'));
+  $('#export-equipment-csv').addEventListener('click',()=>exportEquipment('csv'));
+  $('#export-equipment-xlsx').addEventListener('click',()=>exportEquipment('xlsx'));
+  $('#export-dashboard-png').addEventListener('click',()=>exportDashboard('png'));
+  $('#export-dashboard-pdf').addEventListener('click',()=>exportDashboard('pdf'));
 }
 
 function switchView(name) {
@@ -120,16 +124,20 @@ function renderChart() {
   state.chart=new Chart($('#type-chart'),{type:'bar',data:{labels,datasets:[{data:values,backgroundColor:['#0b6bcb','#18a999','#f59e0b','#7457d9','#ea5b3d','#344b5e'],borderRadius:7,barThickness:22}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{family:'Noto Sans Thai'}}},y:{beginAtZero:true,grid:{color:'#edf1f5'},ticks:{precision:0}}}}});
 }
 
-function renderEquipment() {
+function getFilteredEquipment() {
   const q=$('#equipment-search').value.trim().toLowerCase(),basin=$('#equipment-basin-filter').value,type=$('#equipment-type-filter').value,status=$('#equipment-status-filter').value;
-  const rows=state.data.equipment.filter(x=>{const org=getOrg(x.organization_id);return(!q||[x.code,x.name,x.district,x.subdistrict,x.brand,x.registration_number,org?.name,org?.short_name].join(' ').toLowerCase().includes(q))&&(!basin||x.basin===basin)&&(!type||x.equipment_type_id===type)&&(!status||x.status===status);});
+  return state.data.equipment.filter(x=>{const org=getOrg(x.organization_id);return(!q||[x.code,x.name,x.district,x.subdistrict,x.brand,x.registration_number,org?.name,org?.short_name].join(' ').toLowerCase().includes(q))&&(!basin||x.basin===basin)&&(!type||x.equipment_type_id===type)&&(!status||x.status===status);});
+}
+
+function renderEquipment() {
+  const rows=getFilteredEquipment();
   $('#equipment-table').innerHTML=table(['รหัส / อุปกรณ์','ประเภท','หน่วยงาน / พื้นที่','ทะเบียน / ยี่ห้อ','สถานะ',''],rows.map(x=>[equipmentCell(x),esc(getType(x.equipment_type_id)?.name||'-'),`<b>${esc(getOrg(x.organization_id)?.short_name||'-')}</b><small>${esc(x.subdistrict||'-')} · ${esc(x.district||'')}</small>`,`<b>${esc(x.registration_number||'-')}</b><small>${esc(x.brand||'-')}</small>`,statusBadge(x.status),canEdit(x)?`<button class="row-action" data-edit="${x.id}">แก้ไข</button>`:'']), 'ไม่พบข้อมูลอุปกรณ์');
   $('#equipment-count').textContent=`แสดง ${rows.length.toLocaleString('th-TH')} จาก ${state.data.equipment.length.toLocaleString('th-TH')} รายการ`;
   $$('[data-edit]').forEach(b=>b.addEventListener('click',()=>openEquipmentDialog(state.data.equipment.find(x=>x.id===b.dataset.edit))));
 }
 
 function renderOrganizations() {
-  $('#organization-grid').innerHTML=state.data.organizations.map(o=>{const items=state.data.equipment.filter(x=>x.organization_id===o.id),ready=items.filter(x=>x.status==='ready').length;return `<article class="org-card"><div class="org-icon">${esc(o.short_name?.slice(0,3)||'อปท.')}</div><div class="org-main"><h3>${esc(o.name)}</h3><p>${esc(o.district)} · ${esc(o.phone||'ไม่ระบุโทรศัพท์')}</p><div><span><b>${items.length}</b> รายการ</span><span class="ready-text"><b>${ready}</b> พร้อมใช้</span></div></div><button class="row-action" data-edit-org="${o.id}">แก้ไข</button></article>`;}).join('')||'<div class="empty">ยังไม่มีข้อมูลหน่วยงาน</div>';
+  $('#organization-grid').innerHTML=state.data.organizations.map(o=>{const items=state.data.equipment.filter(x=>x.organization_id===o.id),ready=items.filter(x=>x.status==='ready').length;return `<article class="org-card"><div class="org-icon">${esc(o.short_code||o.short_name?.slice(0,3)||'อปท.')}</div><div class="org-main"><h3>${esc(o.name)}</h3><p>รหัส ${esc(o.official_code||'-')} · ${esc(o.district)} · ${esc(o.phone||'ไม่ระบุโทรศัพท์')}</p><div><span><b>${items.length}</b> รายการ</span><span class="ready-text"><b>${ready}</b> พร้อมใช้</span></div></div><button class="row-action" data-edit-org="${o.id}">แก้ไข</button></article>`;}).join('')||'<div class="empty">ยังไม่มีข้อมูลหน่วยงาน</div>';
   $$('[data-edit-org]').forEach(b=>b.addEventListener('click',()=>openOrganizationDialog(state.data.organizations.find(x=>x.id===b.dataset.editOrg))));
 }
 
@@ -143,6 +151,57 @@ function equipmentCell(x){return `<b>${esc(x.name)}</b><small>${esc(x.code)}</sm
 function statusBadge(s){const m=statusMeta[s]||{label:s,class:''};return `<span class="status-badge ${m.class}"><i></i>${esc(m.label)}</span>`;}
 function formatDate(v){return v?new Intl.DateTimeFormat('th-TH',{dateStyle:'medium'}).format(new Date(v)):'-';}
 function daysSince(v){return v?Math.floor((Date.now()-new Date(v).getTime())/86400000):999;}
+
+function exportRows() {
+  return getFilteredEquipment().map(x=>({
+    'รหัสอุปกรณ์':x.code||'', 'รหัสเดิม':x.legacy_code||'', 'รหัส อปท.':getOrg(x.organization_id)?.official_code||'', 'บริเวณลุ่มแม่น้ำ':x.basin||'', 'อำเภอ':x.district||'', 'ตำบล':x.subdistrict||'',
+    'หน่วยงานเจ้าของ':getOrg(x.organization_id)?.name||'', 'ประเภทอุปกรณ์':getType(x.equipment_type_id)?.name||'',
+    'ชื่ออุปกรณ์':x.name||'', 'สถานะ':statusMeta[x.status]?.label||x.status||'', 'ยี่ห้อ':x.brand||'',
+    'ทะเบียนรถ':x.registration_number||'', 'ตำแหน่ง LAT':Number(x.latitude), 'ตำแหน่ง LONG':Number(x.longitude),
+    'วันที่ใช้งาน':x.commissioned_at||'', 'เบอร์ติดต่อ':x.contact_phone||'', 'หมายเหตุ':x.notes||''
+  }));
+}
+
+function dateStamp(){return new Date().toISOString().slice(0,10);}
+function downloadBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+
+function exportEquipment(format){
+  const rows=exportRows();
+  if(!rows.length)return toast('ไม่มีข้อมูลตามตัวกรองสำหรับส่งออก','error');
+  try{
+    if(format==='xlsx'){
+      if(!window.XLSX)throw new Error('ไม่สามารถโหลดระบบสร้าง Excel');
+      const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();
+      ws['!cols']=[{wch:12},{wch:25},{wch:16},{wch:20},{wch:32},{wch:28},{wch:38},{wch:20},{wch:22},{wch:18},{wch:15},{wch:15},{wch:16},{wch:18},{wch:30}];
+      XLSX.utils.book_append_sheet(wb,ws,'อุปกรณ์ป้องกันน้ำท่วม');
+      XLSX.writeFile(wb,`flood-equipment-${dateStamp()}.xlsx`);
+    }else{
+      const headers=Object.keys(rows[0]),quote=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+      const csv='\ufeff'+[headers.map(quote).join(','),...rows.map(r=>headers.map(h=>quote(r[h])).join(','))].join('\r\n');
+      downloadBlob(new Blob([csv],{type:'text/csv;charset=utf-8'}),`flood-equipment-${dateStamp()}.csv`);
+    }
+    toast(`ดาวน์โหลดข้อมูล ${rows.length.toLocaleString('th-TH')} รายการแล้ว`);
+  }catch(err){toast(`สร้างไฟล์ไม่สำเร็จ: ${err.message}`,'error');}
+}
+
+async function exportDashboard(format){
+  const target=$('#view-dashboard');
+  if(!window.html2canvas)return toast('ไม่สามารถโหลดระบบสร้างภาพรายงาน','error');
+  setLoading(true);target.classList.add('exporting');
+  try{
+    const canvas=await html2canvas(target,{scale:2,useCORS:true,backgroundColor:'#f3f6f8',ignoreElements:el=>el.classList?.contains('export-ignore')});
+    if(format==='png'){
+      canvas.toBlob(blob=>downloadBlob(blob,`floodops-dashboard-${dateStamp()}.png`),'image/png');
+    }else{
+      if(!window.jspdf?.jsPDF)throw new Error('ไม่สามารถโหลดระบบสร้าง PDF');
+      const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'}),margin=8,pageW=297,pageH=210,maxW=pageW-margin*2,maxH=pageH-margin*2,ratio=Math.min(maxW/canvas.width,maxH/canvas.height),w=canvas.width*ratio,h=canvas.height*ratio;
+      pdf.addImage(canvas.toDataURL('image/jpeg',.92),'JPEG',(pageW-w)/2,margin,w,h,'','FAST');
+      pdf.save(`floodops-dashboard-${dateStamp()}.pdf`);
+    }
+    toast(`ดาวน์โหลดแดชบอร์ด ${format.toUpperCase()} แล้ว`);
+  }catch(err){console.error(err);toast(`สร้างไฟล์ไม่สำเร็จ: ${err.message}`,'error');}
+  finally{target.classList.remove('exporting');setLoading(false);}
+}
 
 function initMap() {
   if(state.map)return;
@@ -164,8 +223,8 @@ function clearMapSearch(){$('#map-search').value='';$('#map-basin-filter').value
 function input(name,label,value='',type='text',attrs=''){return `<label>${label}<input name="${name}" type="${type}" value="${esc(value)}" ${attrs}></label>`;}
 function select(name,label,options,value='',attrs=''){return `<label>${label}<select name="${name}" ${attrs}>${options.map(([v,l])=>`<option value="${v}" ${String(v)===String(value)?'selected':''}>${esc(l)}</option>`).join('')}</select></label>`;}
 function openDialog(kind,title,fields,record){const d=$('#entity-dialog');d.dataset.kind=kind;d.dataset.id=record?.id||'';$('#dialog-title').textContent=title;$('#dialog-fields').innerHTML=fields;d.showModal();}
-function openEquipmentDialog(x={}){const orgs=canManageAll()?state.data.organizations:state.data.organizations.filter(o=>o.id===state.profile.organization_id);openDialog('equipment',x.id?'แก้ไขอุปกรณ์':'เพิ่มอุปกรณ์',input('code','รหัสอุปกรณ์',x.code,'text','required')+input('name','ชื่ออุปกรณ์',x.name,'text','required')+select('equipment_type_id','ประเภทอุปกรณ์',state.data.equipmentTypes.map(t=>[t.id,t.name]),x.equipment_type_id,'required')+select('organization_id','หน่วยงานเจ้าของ',orgs.map(o=>[o.id,o.name]),x.organization_id||state.profile.organization_id,'required')+select('status','สถานะ',Object.entries(statusMeta).map(([k,v])=>[k,v.label]),x.status||'ready','required')+input('basin','บริเวณลุ่มแม่น้ำ',x.basin,'text','required')+input('district','อำเภอ',x.district,'text','required')+input('subdistrict','ตำบล',x.subdistrict,'text','required')+input('brand','ยี่ห้อ',x.brand)+input('registration_number','ทะเบียนรถ',x.registration_number)+input('commissioned_at','วันที่ใช้งาน',x.commissioned_at,'date')+input('quantity','จำนวน',x.quantity||1,'number','min="0" required')+input('unit','หน่วยนับ',x.unit||'รายการ','text','required')+input('latitude','ละติจูด',x.latitude,'number','step="any" required')+input('longitude','ลองจิจูด',x.longitude,'number','step="any" required')+input('address','สถานที่จัดเก็บ',x.address)+input('contact_name','ผู้ประสานงาน',x.contact_name)+input('contact_phone','เบอร์โทรศัพท์',x.contact_phone,'tel')+input('last_inspected_at','วันที่ตรวจสอบล่าสุด',x.last_inspected_at,'date')+`<label class="span-2">หมายเหตุ<textarea name="notes" rows="3">${esc(x.notes||'')}</textarea></label>`+(x.id?'<button type="button" id="delete-current" class="btn danger">ลบรายการนี้</button>':''),x);if(x.id)$('#delete-current').addEventListener('click',()=>deleteEquipment(x));}
-function openOrganizationDialog(x={}){openDialog('organization',x.id?'แก้ไขหน่วยงาน':'เพิ่มหน่วยงาน',input('name','ชื่อเต็มของหน่วยงาน',x.name,'text','required')+input('short_name','ชื่อย่อ',x.short_name,'text','required')+input('district','อำเภอ',x.district,'text','required')+input('phone','เบอร์โทรศัพท์',x.phone,'tel'),x);}
+function openEquipmentDialog(x={}){const orgs=canManageAll()?state.data.organizations:state.data.organizations.filter(o=>o.id===state.profile.organization_id);const codeField=x.id?input('code','รหัสอุปกรณ์ (ระบบกำหนด)',x.code,'text','readonly'):`<label>รหัสอุปกรณ์<input value="ระบบจะออกเลขให้อัตโนมัติเมื่อบันทึก" disabled></label>`;openDialog('equipment',x.id?'แก้ไขอุปกรณ์':'เพิ่มอุปกรณ์',codeField+input('name','ชื่ออุปกรณ์',x.name,'text','required')+select('equipment_type_id','ประเภทอุปกรณ์',state.data.equipmentTypes.map(t=>[t.id,t.name]),x.equipment_type_id,'required')+select('organization_id','หน่วยงานเจ้าของ',orgs.map(o=>[o.id,`${o.short_code||'----'} · ${o.name}`]),x.organization_id||state.profile.organization_id,'required')+select('status','สถานะ',Object.entries(statusMeta).map(([k,v])=>[k,v.label]),x.status||'ready','required')+input('basin','บริเวณลุ่มแม่น้ำ',x.basin,'text','required')+input('district','อำเภอ',x.district,'text','required')+input('subdistrict','ตำบล',x.subdistrict,'text','required')+input('brand','ยี่ห้อ',x.brand)+input('registration_number','ทะเบียนรถ',x.registration_number)+input('commissioned_at','วันที่ใช้งาน',x.commissioned_at,'date')+input('quantity','จำนวน',x.quantity||1,'number','min="0" required')+input('unit','หน่วยนับ',x.unit||'รายการ','text','required')+input('latitude','ละติจูด',x.latitude,'number','step="any" required')+input('longitude','ลองจิจูด',x.longitude,'number','step="any" required')+input('address','สถานที่จัดเก็บ',x.address)+input('contact_name','ผู้ประสานงาน',x.contact_name)+input('contact_phone','เบอร์โทรศัพท์',x.contact_phone,'tel')+input('last_inspected_at','วันที่ตรวจสอบล่าสุด',x.last_inspected_at,'date')+`<label class="span-2">หมายเหตุ<textarea name="notes" rows="3">${esc(x.notes||'')}</textarea></label>`+(x.id?'<button type="button" id="delete-current" class="btn danger">ลบรายการนี้</button>':''),x);if(x.id)$('#delete-current').addEventListener('click',()=>deleteEquipment(x));}
+function openOrganizationDialog(x={}){openDialog('organization',x.id?'แก้ไขหน่วยงาน':'เพิ่มหน่วยงาน',input('official_code','รหัส อปท. 8 หลัก',x.official_code,'text','pattern="\\d{8}" maxlength="8" required')+input('short_code','รหัสย่อ 4 หลัก',x.short_code,'text','pattern="\\d{4}" maxlength="4" required')+input('name','ชื่อเต็มของหน่วยงาน',x.name,'text','required')+input('short_name','ชื่อย่อ',x.short_name,'text','required')+input('district','อำเภอ',x.district,'text','required')+input('phone','เบอร์โทรศัพท์',x.phone,'tel'),x);}
 function openUserDialog(x){openDialog('profile','กำหนดสิทธิ์ผู้ใช้งาน',input('full_name','ชื่อ–นามสกุล',x.full_name,'text','required')+select('organization_id','สังกัดหน่วยงาน',state.data.organizations.map(o=>[o.id,o.name]),x.organization_id,'required')+select('role','บทบาท',Object.entries(roleLabel).map(([k,v])=>[k,v]),x.role,'required')+select('active','สถานะบัญชี',[['true','ใช้งาน'],['false','ระงับการใช้งาน']],String(x.active!==false),'required'),x);}
 async function handleDialogSubmit(e){e.preventDefault();const d=$('#entity-dialog');if(e.submitter?.value==='cancel'){d.close();return;}const data=Object.fromEntries(new FormData(e.target));if(d.dataset.id)data.id=d.dataset.id;setLoading(true);try{if(d.dataset.kind==='equipment'){data.quantity=Number(data.quantity);data.latitude=Number(data.latitude);data.longitude=Number(data.longitude);await service.saveEquipment(data);}else if(d.dataset.kind==='organization')await service.saveOrganization(data);else{data.active=data.active==='true';await service.saveProfile(data);}d.close();toast('บันทึกข้อมูลเรียบร้อย');await reloadData();}catch(err){toast(err.message,'error');}finally{setLoading(false);}}
 async function deleteEquipment(x){if(!confirm(`ยืนยันการลบ “${x.name}” หรือไม่`))return;setLoading(true);try{await service.deleteEquipment(x.id);$('#entity-dialog').close();toast('ลบข้อมูลเรียบร้อย');await reloadData();}catch(err){toast(err.message,'error');}finally{setLoading(false);}}
