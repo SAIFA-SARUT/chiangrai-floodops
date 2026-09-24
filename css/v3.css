@@ -33,6 +33,18 @@
 body[data-role="public"] .public-hidden,
 body[data-role="public"] .admin-only,
 body[data-role="public"] .super-only{display:none!important}
+.map-date-label{
+  position:absolute;z-index:500;left:14px;bottom:14px;
+  padding:7px 11px;border:1px solid rgba(15,44,62,.12);border-radius:8px;
+  background:rgba(255,255,255,.92);box-shadow:0 3px 12px rgba(16,43,63,.12);
+  color:#667786;font-size:.72rem;pointer-events:none;
+}
+
+@media (min-width:721px){
+  body[data-view="map"] .app-shell{grid-template-rows:0 1fr}
+  body[data-view="map"] .topbar{display:none}
+  body[data-view="map"] .map-view.active{height:calc(100vh - 56px)}
+}
 
 @media (max-width:1100px){
   .map-toolbar select#map-basin-filter{display:none}
