@@ -3,6 +3,32 @@
 .status-badge.unknown i{background:#8493a0}
 .equipment-marker.unknown{background:#8493a0}
 
+.user-mini{grid-template-columns:36px 1fr}
+.user-mini .logout-btn{
+  grid-column:1/-1;
+  width:100%;
+  min-height:40px;
+  margin-top:5px;
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:8px;
+  background:rgba(255,255,255,.08);
+  color:#e8f1f6;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  font-size:.78rem;
+  font-weight:600;
+  transition:background .18s,border-color .18s;
+}
+.user-mini .logout-btn:hover,
+.user-mini .logout-btn:focus-visible{
+  background:#b93842;
+  border-color:#dc5963;
+  color:#fff;
+  outline:none;
+}
+
 @media (max-width:1100px){
   .map-toolbar select#map-basin-filter{display:none}
 }
