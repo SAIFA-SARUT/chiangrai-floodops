@@ -2,7 +2,7 @@ import { APP_CONFIG, isSupabaseConfigured } from './config.js';
 import { DataService } from './data-service.js';
 
 const service = await new DataService().init();
-const state = { data:{equipment:[],organizations:[],equipmentTypes:[],profiles:[]}, profile:null, chart:null, map:null, markers:null, boundary:null, searchPoint:null, searchCircle:null };
+const state = { data:{equipment:[],organizations:[],equipmentTypes:[],profiles:[]}, profile:null, chart:null, map:null, baseLayers:null, currentBaseLayer:null, markers:null, boundary:null, searchPoint:null, searchCircle:null };
 const $ = (q, root=document) => root.querySelector(q);
 const $$ = (q, root=document) => [...root.querySelectorAll(q)];
 const statusMeta = {
@@ -28,8 +28,8 @@ async function boot() {
   bindGlobalEvents();
   if (isSupabaseConfigured()) {
     const session = await service.restoreSession().catch(()=>null);
-    session ? await enterApp(session.profile) : showLogin();
-  } else showLogin(true);
+    session ? await enterApp(session.profile) : await enterPublic();
+  } else await enterPublic();
 }
 
 function showLogin(demoAvailable=false) {
@@ -41,6 +41,7 @@ function showLogin(demoAvailable=false) {
 async function enterApp(profile) {
   state.profile=profile;
   $('#login-screen').classList.add('hidden'); $('#app-shell').classList.remove('hidden');
+  $('#logout-btn').title='ออกจากระบบ';$('#logout-btn').innerHTML='<span aria-hidden="true">↪</span><span>ออกจากระบบ</span>';
   $('#user-name').textContent=profile.full_name||profile.email;
   $('#user-org').textContent=profile.organizations?.short_name||getOrg(profile.organization_id)?.short_name||roleLabel[profile.role];
   $('#user-avatar').textContent=(profile.full_name||'ผู้ใช้').split(' ').map(x=>x[0]).slice(0,2).join('');
@@ -50,9 +51,23 @@ async function enterApp(profile) {
   await reloadData();
 }
 
+async function enterPublic(){
+  state.profile={role:'public',full_name:'ผู้ใช้งานทั่วไป'};
+  $('#login-screen').classList.add('hidden');$('#app-shell').classList.remove('hidden');
+  $('#user-name').textContent='ผู้ใช้งานทั่วไป';$('#user-org').textContent='ดูข้อมูลสาธารณะ';$('#user-avatar').textContent='ผู้ชม';
+  $('#logout-btn').title='เข้าสู่ระบบเจ้าหน้าที่';$('#logout-btn').innerHTML='<span aria-hidden="true">⇥</span><span>เข้าสู่ระบบ</span>';
+  document.body.dataset.role='public';
+  const connection=$('#connection-status');connection.className=`connection-pill ${service.demo?'demo':'online'}`;
+  connection.innerHTML=`<i></i><span>${service.demo?'ข้อมูลสาธิต':'ข้อมูลสาธารณะ'}</span>`;
+  setLoading(true);
+  try{state.data=await service.loadPublic();renderAll();switchView('map');}
+  catch(err){console.error(err);toast(`โหลดแผนที่ไม่สำเร็จ: ${err.message}`,'error');showLogin(service.demo);}
+  finally{setLoading(false);}
+}
+
 async function reloadData() {
   setLoading(true);
-  try { state.data=await service.loadAll(); renderAll(); }
+  try { state.data=state.profile?.role==='public'?await service.loadPublic():await service.loadAll(); renderAll(); }
   catch(err) { console.error(err); toast(`โหลดข้อมูลไม่สำเร็จ: ${err.message}`,'error'); }
   finally { setLoading(false); }
 }
@@ -60,7 +75,8 @@ async function reloadData() {
 function bindGlobalEvents() {
   $('#login-form').addEventListener('submit',async e=>{ e.preventDefault(); setLoading(true); try{const r=await service.signIn($('#login-email').value,$('#login-password').value);await enterApp(r.profile);}catch(err){toast(err.message,'error');}finally{setLoading(false);} });
   $('#demo-login').addEventListener('click',()=>enterApp({id:'demo-admin',full_name:'ผู้ดูแลระบบจังหวัด',email:'demo@example.com',role:'super_admin',organization_id:'org-1'}));
-  $('#logout-btn').addEventListener('click',async()=>{await service.signOut();location.reload();});
+  $('#public-map').addEventListener('click',enterPublic);
+  $('#logout-btn').addEventListener('click',async()=>{if(state.profile?.role==='public'){showLogin(service.demo);return;}await service.signOut();location.reload();});
   $('#main-nav').addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b)switchView(b.dataset.view);});
   $$('[data-go]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.go)));
   $$('[data-action="refresh"]').forEach(b=>b.addEventListener('click',reloadData));
@@ -73,6 +89,7 @@ function bindGlobalEvents() {
   $('#equipment-basin-filter').addEventListener('change',renderEquipment);
   $('#equipment-status-filter').addEventListener('change',renderEquipment);
   $('#map-search').addEventListener('input',renderMapMarkers);
+  $('#map-basemap').addEventListener('change',e=>setBaseMap(e.target.value));
   $('#map-type-filter').addEventListener('change',renderMapMarkers);
   $('#map-basin-filter').addEventListener('change',renderMapMarkers);
   $('#map-status-filter').addEventListener('change',renderMapMarkers);
@@ -207,10 +224,21 @@ function initMap() {
   if(state.map)return;
   state.map=L.map('map',{zoomControl:false}).setView(APP_CONFIG.mapCenter,APP_CONFIG.mapZoom);
   L.control.zoom({position:'bottomright'}).addTo(state.map);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(state.map);
+  state.baseLayers={
+    street:L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}),
+    satellite:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri'})
+  };
+  setBaseMap($('#map-basemap').value||'street');
   state.markers=L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:44}).addTo(state.map);
   fetch('data/chiangrai-province.json').then(r=>r.json()).then(g=>{state.boundary=L.geoJSON(g,{style:{color:'#0b6bcb',weight:2.5,fillColor:'#0b6bcb',fillOpacity:.035}}).addTo(state.map);state.map.fitBounds(state.boundary.getBounds(),{padding:[15,15]});}).catch(()=>{});
   state.map.on('click',e=>findNearest(e.latlng));
+}
+
+function setBaseMap(name){
+  if(!state.map||!state.baseLayers)return;
+  const selected=state.baseLayers[name]||state.baseLayers.street;
+  if(state.currentBaseLayer&&state.map.hasLayer(state.currentBaseLayer))state.map.removeLayer(state.currentBaseLayer);
+  selected.addTo(state.map);selected.bringToBack();state.currentBaseLayer=selected;
 }
 
 function filteredMapItems(){const q=$('#map-search').value.trim().toLowerCase(),basin=$('#map-basin-filter').value,type=$('#map-type-filter').value,status=$('#map-status-filter').value;return state.data.equipment.filter(x=>Number.isFinite(Number(x.latitude))&&Number.isFinite(Number(x.longitude))&&(!q||[x.name,x.code,x.district,x.subdistrict,x.brand,x.registration_number,getOrg(x.organization_id)?.name].join(' ').toLowerCase().includes(q))&&(!basin||x.basin===basin)&&(!type||x.equipment_type_id===type)&&(!status||x.status===status));}

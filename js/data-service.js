@@ -64,6 +64,21 @@ export class DataService {
     return { equipment:eq.data, organizations:org.data, equipmentTypes:types.data, profiles:profiles.data };
   }
 
+  async loadPublic() {
+    if (this.demo) {
+      const db=demoDb();
+      return { equipment:db.equipment, organizations:db.organizations, equipmentTypes:db.equipmentTypes, profiles:[] };
+    }
+    const [eq,org,types]=await Promise.all([
+      this.client.from('public_equipment_map').select('*').order('code'),
+      this.client.from('public_organizations').select('*').order('name'),
+      this.client.from('public_equipment_types').select('*').order('name')
+    ]);
+    const firstError=[eq,org,types].find(r=>r.error)?.error;
+    if(firstError)throw firstError;
+    return { equipment:eq.data,organizations:org.data,equipmentTypes:types.data,profiles:[] };
+  }
+
   async saveEquipment(record) {
     if (this.demo) {
       const db = demoDb();
