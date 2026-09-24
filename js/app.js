@@ -2,7 +2,7 @@ import { APP_CONFIG, isSupabaseConfigured } from './config.js';
 import { DataService } from './data-service.js';
 
 const service = await new DataService().init();
-const state = { data:{equipment:[],organizations:[],equipmentTypes:[],profiles:[]}, profile:null, chart:null, map:null, baseLayers:null, currentBaseLayer:null, markers:null, boundary:null, searchPoint:null, searchCircle:null };
+const state = { data:{equipment:[],organizations:[],equipmentTypes:[],profiles:[]}, profile:null, chart:null, map:null, baseLayers:null, currentBaseLayer:null, markers:null, boundary:null, searchPoint:null, searchCircle:null, equipmentPage:1, equipmentPageSize:20, importRows:[] };
 const $ = (q, root=document) => root.querySelector(q);
 const $$ = (q, root=document) => [...root.querySelectorAll(q)];
 const statusMeta = {
@@ -85,10 +85,10 @@ function bindGlobalEvents() {
   $('[data-action="add-organization"]').addEventListener('click',()=>openOrganizationDialog());
   $('#mobile-menu').addEventListener('click',()=>$('.sidebar').classList.toggle('open'));
   $('#entity-form').addEventListener('submit',handleDialogSubmit);
-  $('#equipment-search').addEventListener('input',renderEquipment);
-  $('#equipment-type-filter').addEventListener('change',renderEquipment);
-  $('#equipment-basin-filter').addEventListener('change',renderEquipment);
-  $('#equipment-status-filter').addEventListener('change',renderEquipment);
+  $('#equipment-search').addEventListener('input',resetEquipmentPage);
+  $('#equipment-type-filter').addEventListener('change',resetEquipmentPage);
+  $('#equipment-basin-filter').addEventListener('change',resetEquipmentPage);
+  $('#equipment-status-filter').addEventListener('change',resetEquipmentPage);
   $('#map-search').addEventListener('input',renderMapMarkers);
   $('#map-basemap').addEventListener('change',e=>setBaseMap(e.target.value));
   $('#map-type-filter').addEventListener('change',renderMapMarkers);
@@ -100,6 +100,10 @@ function bindGlobalEvents() {
   $('#close-nearest').addEventListener('click',()=>$('#nearest-panel').classList.remove('open'));
   $('#export-equipment-csv').addEventListener('click',()=>exportEquipment('csv'));
   $('#export-equipment-xlsx').addEventListener('click',()=>exportEquipment('xlsx'));
+  $('#import-equipment-xlsx').addEventListener('click',openImportDialog);
+  $('#download-import-template').addEventListener('click',downloadImportTemplate);
+  $('#import-file').addEventListener('change',handleImportFile);
+  $('#import-form').addEventListener('submit',confirmImport);
   $('#export-dashboard-png').addEventListener('click',()=>exportDashboard('png'));
   $('#export-dashboard-pdf').addEventListener('click',()=>exportDashboard('pdf'));
 }
@@ -150,9 +154,24 @@ function getFilteredEquipment() {
 
 function renderEquipment() {
   const rows=getFilteredEquipment();
-  $('#equipment-table').innerHTML=table(['รหัส / อุปกรณ์','ประเภท','หน่วยงาน / พื้นที่','ทะเบียน / ยี่ห้อ','สถานะ',''],rows.map(x=>[equipmentCell(x),esc(getType(x.equipment_type_id)?.name||'-'),`<b>${esc(getOrg(x.organization_id)?.short_name||'-')}</b><small>${esc(x.subdistrict||'-')} · ${esc(x.district||'')}</small>`,`<b>${esc(x.registration_number||'-')}</b><small>${esc(x.brand||'-')}</small>`,statusBadge(x.status),canEdit(x)?`<button class="row-action" data-edit="${x.id}">แก้ไข</button>`:'']), 'ไม่พบข้อมูลอุปกรณ์');
-  $('#equipment-count').textContent=`แสดง ${rows.length.toLocaleString('th-TH')} จาก ${state.data.equipment.length.toLocaleString('th-TH')} รายการ`;
+  const totalPages=Math.max(1,Math.ceil(rows.length/state.equipmentPageSize));
+  state.equipmentPage=Math.min(Math.max(1,state.equipmentPage),totalPages);
+  const start=(state.equipmentPage-1)*state.equipmentPageSize,end=Math.min(start+state.equipmentPageSize,rows.length),pageRows=rows.slice(start,end);
+  $('#equipment-table').innerHTML=table(['รหัส / อุปกรณ์','ประเภท','หน่วยงาน / พื้นที่','ทะเบียน / ยี่ห้อ','สถานะ',''],pageRows.map(x=>[equipmentCell(x),esc(getType(x.equipment_type_id)?.name||'-'),`<b>${esc(getOrg(x.organization_id)?.short_name||'-')}</b><small>${esc(x.subdistrict||'-')} · ${esc(x.district||'')}</small>`,`<b>${esc(x.registration_number||'-')}</b><small>${esc(x.brand||'-')}</small>`,statusBadge(x.status),canEdit(x)?`<button class="row-action" data-edit="${x.id}">แก้ไข</button>`:'']), 'ไม่พบข้อมูลอุปกรณ์');
+  $('#equipment-count').textContent=rows.length?`แสดง ${(start+1).toLocaleString('th-TH')}–${end.toLocaleString('th-TH')} จาก ${rows.length.toLocaleString('th-TH')} รายการ`:'ไม่พบข้อมูลตามตัวกรอง';
+  renderEquipmentPagination(totalPages);
   $$('[data-edit]').forEach(b=>b.addEventListener('click',()=>openEquipmentDialog(state.data.equipment.find(x=>x.id===b.dataset.edit))));
+}
+
+function resetEquipmentPage(){state.equipmentPage=1;renderEquipment();}
+function renderEquipmentPagination(totalPages){
+  const pages=[];
+  for(let p=1;p<=totalPages;p++)if(p===1||p===totalPages||Math.abs(p-state.equipmentPage)<=1)pages.push(p);
+  let last=0,html=`<button class="page-btn" data-equipment-page="${state.equipmentPage-1}" ${state.equipmentPage===1?'disabled':''}>ก่อนหน้า</button>`;
+  pages.forEach(p=>{if(last&&p-last>1)html+='<span class="page-gap">…</span>';html+=`<button class="page-btn ${p===state.equipmentPage?'active':''}" data-equipment-page="${p}" ${p===state.equipmentPage?'aria-current="page"':''}>${p.toLocaleString('th-TH')}</button>`;last=p;});
+  html+=`<button class="page-btn" data-equipment-page="${state.equipmentPage+1}" ${state.equipmentPage===totalPages?'disabled':''}>ถัดไป</button>`;
+  $('#equipment-pagination').innerHTML=totalPages>1?html:'';
+  $$('[data-equipment-page]').forEach(b=>b.addEventListener('click',()=>{state.equipmentPage=Number(b.dataset.equipmentPage);renderEquipment();$('#view-equipment').scrollIntoView({behavior:'smooth',block:'start'});}));
 }
 
 function renderOrganizations() {
@@ -173,11 +192,12 @@ function daysSince(v){return v?Math.floor((Date.now()-new Date(v).getTime())/864
 
 function exportRows() {
   return getFilteredEquipment().map(x=>({
-    'รหัสอุปกรณ์':x.code||'', 'รหัสเดิม':x.legacy_code||'', 'รหัส อปท.':getOrg(x.organization_id)?.official_code||'', 'บริเวณลุ่มแม่น้ำ':x.basin||'', 'อำเภอ':x.district||'', 'ตำบล':x.subdistrict||'',
-    'หน่วยงานเจ้าของ':getOrg(x.organization_id)?.name||'', 'ประเภทอุปกรณ์':getType(x.equipment_type_id)?.name||'',
-    'ชื่ออุปกรณ์':x.name||'', 'สถานะ':statusMeta[x.status]?.label||x.status||'', 'ยี่ห้อ':x.brand||'',
-    'ทะเบียนรถ':x.registration_number||'', 'ตำแหน่ง LAT':Number(x.latitude), 'ตำแหน่ง LONG':Number(x.longitude),
-    'วันที่ใช้งาน':x.commissioned_at||'', 'เบอร์ติดต่อ':x.contact_phone||'', 'หมายเหตุ':x.notes||''
+    'รหัสอุปกรณ์':x.code||'', 'รหัสเดิม':x.legacy_code||'', 'รหัส อปท.':getOrg(x.organization_id)?.official_code||'',
+    'ประเภทอุปกรณ์':getType(x.equipment_type_id)?.name||'', 'ชื่ออุปกรณ์':x.name||'', 'สถานะ':statusMeta[x.status]?.label||x.status||'',
+    'จำนวน':Number(x.quantity??1), 'หน่วยนับ':x.unit||'รายการ', 'ละติจูด':Number(x.latitude), 'ลองจิจูด':Number(x.longitude),
+    'ลุ่มน้ำ':x.basin||'', 'อำเภอ':x.district||'', 'ตำบล':x.subdistrict||'', 'ยี่ห้อ':x.brand||'', 'ทะเบียนรถ':x.registration_number||'',
+    'วันที่เริ่มใช้งาน':x.commissioned_at||'', 'สถานที่จัดเก็บ':x.address||'', 'ผู้ประสานงาน':x.contact_name||'',
+    'เบอร์ติดต่อ':x.contact_phone||'', 'วันที่ตรวจล่าสุด':x.last_inspected_at||'', 'หมายเหตุ':x.notes||''
   }));
 }
 
@@ -191,7 +211,7 @@ function exportEquipment(format){
     if(format==='xlsx'){
       if(!window.XLSX)throw new Error('ไม่สามารถโหลดระบบสร้าง Excel');
       const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();
-      ws['!cols']=[{wch:12},{wch:25},{wch:16},{wch:20},{wch:32},{wch:28},{wch:38},{wch:20},{wch:22},{wch:18},{wch:15},{wch:15},{wch:16},{wch:18},{wch:30}];
+      ws['!cols']=Object.keys(rows[0]).map(h=>({wch:Math.max(13,h.length+4)}));
       XLSX.utils.book_append_sheet(wb,ws,'อุปกรณ์ป้องกันน้ำท่วม');
       XLSX.writeFile(wb,`flood-equipment-${dateStamp()}.xlsx`);
     }else{
@@ -201,6 +221,94 @@ function exportEquipment(format){
     }
     toast(`ดาวน์โหลดข้อมูล ${rows.length.toLocaleString('th-TH')} รายการแล้ว`);
   }catch(err){toast(`สร้างไฟล์ไม่สำเร็จ: ${err.message}`,'error');}
+}
+
+const importHeaders=['รหัสอุปกรณ์','รหัสเดิม','รหัส อปท.','ประเภทอุปกรณ์','ชื่ออุปกรณ์','สถานะ','จำนวน','หน่วยนับ','ละติจูด','ลองจิจูด','ลุ่มน้ำ','อำเภอ','ตำบล','ยี่ห้อ','ทะเบียนรถ','วันที่เริ่มใช้งาน','สถานที่จัดเก็บ','ผู้ประสานงาน','เบอร์ติดต่อ','วันที่ตรวจล่าสุด','หมายเหตุ'];
+const importStatus={...Object.fromEntries(Object.entries(statusMeta).map(([key,value])=>[value.label,key])),ready:'ready',deployed:'deployed',maintenance:'maintenance',unavailable:'unavailable',unknown:'unknown'};
+
+function openImportDialog(){
+  state.importRows=[];$('#import-file').value='';$('#import-summary').textContent='ยังไม่ได้เลือกไฟล์';$('#import-errors').classList.add('hidden');$('#import-errors').innerHTML='';$('#import-preview').innerHTML='';$('#confirm-import').disabled=true;$('#import-dialog').showModal();
+}
+
+function downloadImportTemplate(){
+  if(!window.XLSX)return toast('ไม่สามารถโหลดระบบสร้าง Excel','error');
+  const allowedOrgs=canManageAll()?state.data.organizations:state.data.organizations.filter(o=>o.id===state.profile.organization_id);
+  const exampleOrg=allowedOrgs[0],exampleType=state.data.equipmentTypes[0];
+  const example=Object.fromEntries(importHeaders.map(h=>[h,'']));
+  Object.assign(example,{'รหัส อปท.':exampleOrg?.official_code||'','ประเภทอุปกรณ์':exampleType?.name||'','ชื่ออุปกรณ์':'ตัวอย่างอุปกรณ์','สถานะ':'พร้อมใช้งาน','จำนวน':1,'หน่วยนับ':'รายการ','ละติจูด':19.91,'ลองจิจูด':99.84,'อำเภอ':exampleOrg?.district||'เมืองเชียงราย'});
+  const wb=XLSX.utils.book_new(),dataWs=XLSX.utils.json_to_sheet([example],{header:importHeaders});
+  dataWs['!cols']=importHeaders.map(h=>({wch:Math.max(13,h.length+4)}));
+  XLSX.utils.book_append_sheet(wb,dataWs,'ข้อมูลอุปกรณ์');
+  const guide=[
+    ['คำแนะนำ','รายละเอียด'],['การเพิ่มใหม่','เว้น “รหัสอุปกรณ์” ว่าง ระบบจะออกรหัสให้อัตโนมัติ'],['การแก้ไข','ใส่รหัสอุปกรณ์เดิม เช่น 1803-0001 และห้ามเปลี่ยน อปท. เจ้าของ'],['การบันทึก','หากมีแถวใดผิด ระบบจะไม่บันทึกทั้งไฟล์'],['สถานะที่ใช้ได้',Object.values(statusMeta).map(x=>x.label).join(', ')],['รูปแบบวันที่','YYYY-MM-DD เช่น 2026-09-24']
+  ];
+  const guideWs=XLSX.utils.aoa_to_sheet(guide);guideWs['!cols']=[{wch:18},{wch:85}];XLSX.utils.book_append_sheet(wb,guideWs,'คำแนะนำ');
+  const refRows=[['รหัส อปท.','ชื่อหน่วยงาน','อำเภอ'],...allowedOrgs.map(o=>[o.official_code,o.name,o.district]),[],['ประเภทอุปกรณ์'],...state.data.equipmentTypes.map(t=>[t.name])];
+  const refWs=XLSX.utils.aoa_to_sheet(refRows);refWs['!cols']=[{wch:15},{wch:50},{wch:22}];XLSX.utils.book_append_sheet(wb,refWs,'รายการอ้างอิง');
+  XLSX.writeFile(wb,`แม่แบบนำเข้าอุปกรณ์-${dateStamp()}.xlsx`);
+}
+
+function textValue(value){return String(value??'').trim();}
+function orgCodeValue(value){const raw=textValue(value).replace(/\.0$/,'');return raw.padStart(8,'0');}
+function numberValue(value){if(value===''||value===null||value===undefined)return NaN;return Number(String(value).replace(/,/g,''));}
+function excelDate(value){
+  if(value===''||value===null||value===undefined)return null;
+  if(value instanceof Date&&!Number.isNaN(value.getTime()))return value.toISOString().slice(0,10);
+  if(typeof value==='number'&&window.XLSX){const d=XLSX.SSF.parse_date_code(value);if(d)return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;}
+  const s=textValue(value);if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+  const m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);if(m){const year=Number(m[3])>2400?Number(m[3])-543:Number(m[3]);return `${year}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;}
+  return '__INVALID__';
+}
+
+function validateImportRows(sourceRows){
+  const errors=[],valid=[],seenCodes=new Set();
+  sourceRows.forEach((row,index)=>{
+    const rowNo=index+2,fail=message=>errors.push(`แถว ${rowNo}: ${message}`),code=textValue(row['รหัสอุปกรณ์']),orgCode=orgCodeValue(row['รหัส อปท.']);
+    const org=state.data.organizations.find(o=>o.official_code===orgCode),type=state.data.equipmentTypes.find(t=>t.name===textValue(row['ประเภทอุปกรณ์'])),existing=code?state.data.equipment.find(x=>x.code===code):null;
+    const status=importStatus[textValue(row['สถานะ'])],quantity=numberValue(row['จำนวน']||1),latitude=numberValue(row['ละติจูด']),longitude=numberValue(row['ลองจิจูด']);
+    const commissioned=excelDate(row['วันที่เริ่มใช้งาน']),inspected=excelDate(row['วันที่ตรวจล่าสุด']);
+    if(code&&!/^\d{4}-\d{4}$/.test(code))fail('รูปแบบรหัสอุปกรณ์ไม่ถูกต้อง');
+    if(code&&seenCodes.has(code))fail(`รหัสอุปกรณ์ ${code} ซ้ำในไฟล์`);if(code)seenCodes.add(code);
+    if(code&&!existing)fail(`ไม่พบรหัสอุปกรณ์ ${code} สำหรับแก้ไข`);
+    if(!org)fail(`ไม่พบรหัส อปท. ${orgCode||'(ว่าง)'}`);
+    if(org&&!canManageAll()&&org.id!==state.profile.organization_id)fail('ไม่มีสิทธิ์นำเข้าข้อมูลของ อปท. นี้');
+    if(existing&&org&&existing.organization_id!==org.id)fail('ไม่อนุญาตให้เปลี่ยนหน่วยงานเจ้าของของอุปกรณ์เดิม');
+    if(!type)fail(`ไม่พบประเภทอุปกรณ์ “${textValue(row['ประเภทอุปกรณ์'])||'(ว่าง)'}”`);
+    if(!textValue(row['ชื่ออุปกรณ์']))fail('กรุณาระบุชื่ออุปกรณ์');
+    if(!status)fail(`สถานะ “${textValue(row['สถานะ'])||'(ว่าง)'}” ไม่ถูกต้อง`);
+    if(!Number.isFinite(quantity)||quantity<0)fail('จำนวนต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป');
+    if(!Number.isFinite(latitude)||latitude<-90||latitude>90)fail('ละติจูดไม่ถูกต้อง');
+    if(!Number.isFinite(longitude)||longitude<-180||longitude>180)fail('ลองจิจูดไม่ถูกต้อง');
+    if(!textValue(row['อำเภอ']))fail('กรุณาระบุอำเภอ');
+    if(commissioned==='__INVALID__')fail('วันที่เริ่มใช้งานไม่ถูกต้อง');if(inspected==='__INVALID__')fail('วันที่ตรวจล่าสุดไม่ถูกต้อง');
+    valid.push({code:code||null,legacy_code:textValue(row['รหัสเดิม'])||null,organization_code:orgCode,equipment_type_name:textValue(row['ประเภทอุปกรณ์']),name:textValue(row['ชื่ออุปกรณ์']),status,quantity,unit:textValue(row['หน่วยนับ'])||'รายการ',latitude,longitude,basin:textValue(row['ลุ่มน้ำ'])||null,district:textValue(row['อำเภอ']),subdistrict:textValue(row['ตำบล'])||null,brand:textValue(row['ยี่ห้อ'])||null,registration_number:textValue(row['ทะเบียนรถ'])||null,commissioned_at:commissioned==='__INVALID__'?null:commissioned,address:textValue(row['สถานที่จัดเก็บ'])||null,contact_name:textValue(row['ผู้ประสานงาน'])||null,contact_phone:textValue(row['เบอร์ติดต่อ'])||null,last_inspected_at:inspected==='__INVALID__'?null:inspected,notes:textValue(row['หมายเหตุ'])||null});
+  });
+  return {valid,errors};
+}
+
+async function handleImportFile(e){
+  const file=e.target.files[0];state.importRows=[];$('#confirm-import').disabled=true;if(!file)return;
+  try{
+    if(!window.XLSX)throw new Error('ไม่สามารถโหลดระบบอ่าน Excel');
+    const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true}),sheet=wb.Sheets['ข้อมูลอุปกรณ์']||wb.Sheets[wb.SheetNames[0]];
+    const source=XLSX.utils.sheet_to_json(sheet,{defval:'',raw:true});if(!source.length)throw new Error('ไม่พบข้อมูลในไฟล์');
+    if(source.length>1000)throw new Error('นำเข้าได้สูงสุดครั้งละ 1,000 แถว');
+    const missing=importHeaders.filter(h=>!Object.prototype.hasOwnProperty.call(source[0],h));if(missing.length)throw new Error(`ขาดคอลัมน์: ${missing.join(', ')}`);
+    const result=validateImportRows(source),inserted=result.valid.filter(x=>!x.code).length,updated=result.valid.length-inserted;
+    $('#import-summary').textContent=`พบ ${source.length.toLocaleString('th-TH')} แถว · เพิ่มใหม่ ${inserted.toLocaleString('th-TH')} · แก้ไข ${updated.toLocaleString('th-TH')} · ข้อผิดพลาด ${result.errors.length.toLocaleString('th-TH')}`;
+    $('#import-errors').classList.toggle('hidden',!result.errors.length);$('#import-errors').innerHTML=result.errors.length?`<b>กรุณาแก้ไขก่อนนำเข้า</b><ul>${result.errors.slice(0,50).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>${result.errors.length>50?`<p>และอีก ${result.errors.length-50} รายการ</p>`:''}`:'';
+    $('#import-preview').innerHTML=table(['แถว','การทำงาน','รหัส อปท.','ชื่ออุปกรณ์','ประเภท','สถานะ'],result.valid.slice(0,10).map((x,i)=>[i+2,x.code?'แก้ไข':'เพิ่มใหม่',esc(x.organization_code),esc(x.name),esc(x.equipment_type_name),esc(statusMeta[x.status]?.label||x.status)]),'');
+    if(!result.errors.length){state.importRows=result.valid;$('#confirm-import').disabled=false;}
+  }catch(err){$('#import-summary').textContent=`อ่านไฟล์ไม่สำเร็จ: ${err.message}`;$('#import-errors').classList.add('hidden');$('#import-preview').innerHTML='';}
+}
+
+async function confirmImport(e){
+  e.preventDefault();if(e.submitter?.value==='cancel'){ $('#import-dialog').close();return; }
+  if(!state.importRows.length)return;
+  setLoading(true);$('#confirm-import').disabled=true;
+  try{const result=await service.importEquipmentBatch(state.importRows);$('#import-dialog').close();toast(`นำเข้าสำเร็จ ${Number(result.total||state.importRows.length).toLocaleString('th-TH')} รายการ`);state.equipmentPage=1;await reloadData();}
+  catch(err){toast(`นำเข้าไม่สำเร็จ: ${err.message}`,'error');$('#confirm-import').disabled=false;}
+  finally{setLoading(false);}
 }
 
 async function exportDashboard(format){

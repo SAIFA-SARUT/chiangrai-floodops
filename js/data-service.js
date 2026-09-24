@@ -105,6 +105,26 @@ export class DataService {
     const { error } = await this.client.from('equipment').delete().eq('id', id); if (error) throw error;
   }
 
+  async importEquipmentBatch(rows) {
+    if (this.demo) {
+      const db=demoDb();let inserted=0,updated=0;
+      for(const row of rows){
+        const org=db.organizations.find(x=>x.official_code===row.organization_code),type=db.equipmentTypes.find(x=>x.name===row.equipment_type_name);
+        if(!org||!type)throw new Error('ไม่พบหน่วยงานหรือประเภทอุปกรณ์ในข้อมูลนำเข้า');
+        const payload={...row,organization_id:org.id,equipment_type_id:type.id};delete payload.organization_code;delete payload.equipment_type_name;
+        if(payload.code){const idx=db.equipment.findIndex(x=>x.code===payload.code);if(idx<0)throw new Error(`ไม่พบรหัส ${payload.code}`);db.equipment[idx]={...db.equipment[idx],...payload};updated++;}
+        else{
+          const last=db.equipment.filter(x=>x.organization_id===org.id&&new RegExp(`^${org.short_code}-\\d{4}$`).test(x.code||'')).reduce((max,x)=>Math.max(max,Number(x.code.slice(-4))),0);
+          if(last>=9999)throw new Error(`เลขลำดับอุปกรณ์ของ ${org.name} ครบ 9999 รายการแล้ว`);
+          db.equipment.unshift({...payload,id:crypto.randomUUID(),code:`${org.short_code}-${String(last+1).padStart(4,'0')}`});inserted++;
+        }
+      }
+      saveDemo(db);return {inserted,updated,total:inserted+updated};
+    }
+    const { data,error }=await this.client.rpc('import_equipment_batch',{p_rows:rows});
+    if(error)throw error;return data;
+  }
+
   async saveOrganization(record) {
     if (this.demo) {
       const db=demoDb(); const item={...record,id:record.id||crypto.randomUUID(),active:true};
