@@ -83,7 +83,7 @@
       <section id="view-map" class="view map-view">
         <div class="map-toolbar">
           <div class="search-box"><span>⌕</span><input id="map-search" placeholder="ค้นหาชื่ออุปกรณ์ หน่วยงาน หรืออำเภอ"></div>
-          <select id="map-basemap" aria-label="เลือกรูปแบบแผนที่"><option value="street">Street Map</option><option value="satellite">Satellite Map</option></select>
+          <select id="map-basemap" aria-label="เลือกรูปแบบแผนที่"><option value="street">🗺️ Street Map</option><option value="satellite">🛰️ Satellite Map</option></select>
           <select id="map-basin-filter"><option value="">ทุกลุ่มน้ำ</option></select>
           <select id="map-type-filter"><option value="">ทุกประเภท</option></select>
           <select id="map-status-filter"><option value="">ทุกสถานะ</option></select>
@@ -91,6 +91,7 @@
           <button id="clear-map-search" class="btn ghost">ล้าง</button>
         </div>
         <div id="map"></div>
+        <span id="map-date-label" class="map-date-label"></span>
         <aside id="nearest-panel" class="nearest-panel">
           <div class="panel-head"><div><p class="eyebrow">ค้นหาใกล้จุดเกิดเหตุ</p><h3>อุปกรณ์ที่ใกล้ที่สุด</h3></div><button id="close-nearest" class="icon-btn">×</button></div>
           <label>รัศมีค้นหา <span><input id="radius-input" type="number" min="1" max="100" value="15"> กม.</span></label>
