@@ -100,9 +100,9 @@
       </section>
 
       <section id="view-equipment" class="view">
-        <div class="section-head"><div><h2>คลังอุปกรณ์</h2><p>ตรวจสอบและปรับปรุงข้อมูลทรัพยากรของแต่ละ อปท.</p></div><div class="action-group"><button id="export-equipment-csv" class="btn outline">ดาวน์โหลด CSV</button><button id="export-equipment-xlsx" class="btn outline">ดาวน์โหลด Excel</button><button class="btn primary" data-action="add-equipment">＋ เพิ่มอุปกรณ์</button></div></div>
+        <div class="section-head"><div><h2>คลังอุปกรณ์</h2><p>ตรวจสอบและปรับปรุงข้อมูลทรัพยากรของแต่ละ อปท.</p></div><div class="action-group"><button id="export-equipment-csv" class="btn outline">ดาวน์โหลด CSV</button><button id="export-equipment-xlsx" class="btn outline">ดาวน์โหลด Excel</button><button id="import-equipment-xlsx" class="btn outline">นำเข้า Excel</button><button class="btn primary" data-action="add-equipment">＋ เพิ่มอุปกรณ์</button></div></div>
         <div class="filter-bar"><div class="search-box grow"><span>⌕</span><input id="equipment-search" placeholder="ค้นหารหัส ชื่ออุปกรณ์ ทะเบียนรถ หรือหน่วยงาน"></div><select id="equipment-basin-filter"><option value="">ทุกลุ่มน้ำ</option></select><select id="equipment-type-filter"><option value="">ทุกประเภท</option></select><select id="equipment-status-filter"><option value="">ทุกสถานะ</option></select></div>
-        <div class="panel"><div id="equipment-table" class="table-wrap"></div><div id="equipment-count" class="table-foot"></div></div>
+        <div class="panel"><div id="equipment-table" class="table-wrap"></div><div class="table-footer"><div id="equipment-count" class="table-foot"></div><nav id="equipment-pagination" class="pagination" aria-label="เปลี่ยนหน้ารายการอุปกรณ์"></nav></div></div>
       </section>
 
       <section id="view-organizations" class="view">
@@ -123,6 +123,18 @@
       <div class="dialog-head"><div><p id="dialog-kicker" class="eyebrow">จัดการข้อมูล</p><h2 id="dialog-title">เพิ่มอุปกรณ์</h2></div><button class="icon-btn" value="cancel" formnovalidate>×</button></div>
       <div id="dialog-fields" class="form-grid"></div>
       <div class="dialog-actions"><button class="btn ghost" value="cancel" formnovalidate>ยกเลิก</button><button id="save-entity" class="btn primary" value="default">บันทึกข้อมูล</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="import-dialog">
+    <form id="import-form" method="dialog">
+      <div class="dialog-head"><div><p class="eyebrow">นำเข้าข้อมูลจำนวนมาก</p><h2>นำเข้าอุปกรณ์ด้วย Excel</h2></div><button class="icon-btn" value="cancel" formnovalidate>×</button></div>
+      <div class="import-guide"><p>ดาวน์โหลดไฟล์ตัวอย่าง กรอกข้อมูล แล้วเลือกไฟล์กลับเข้ามา ระบบจะตรวจสอบทุกแถวก่อนบันทึก หากพบข้อผิดพลาดจะยังไม่บันทึกข้อมูลใด ๆ</p><button id="download-import-template" type="button" class="btn outline">ดาวน์โหลดไฟล์ตัวอย่าง</button></div>
+      <label class="file-drop">เลือกไฟล์ Excel (.xlsx หรือ .xls)<input id="import-file" type="file" accept=".xlsx,.xls" required></label>
+      <div id="import-summary" class="import-summary">ยังไม่ได้เลือกไฟล์</div>
+      <div id="import-errors" class="import-errors hidden"></div>
+      <div id="import-preview" class="table-wrap import-preview"></div>
+      <div class="dialog-actions"><button class="btn ghost" value="cancel" formnovalidate>ยกเลิก</button><button id="confirm-import" class="btn primary" value="default" disabled>ยืนยันนำเข้าข้อมูล</button></div>
     </form>
   </dialog>
 
