@@ -7,8 +7,18 @@ export const APP_CONFIG = {
   mapZoom: 9
 };
 
-export const isSupabaseConfigured = () =>
-  APP_CONFIG.supabaseUrl.startsWith('https://') &&
-  !APP_CONFIG.supabaseUrl.includes('YOUR_') &&
-  APP_CONFIG.supabaseAnonKey.length > 40 &&
-  !APP_CONFIG.supabaseAnonKey.includes('YOUR_');
+export const isSupabaseConfigured = () => {
+  const url = APP_CONFIG.supabaseUrl.trim();
+  const key = APP_CONFIG.supabaseAnonKey.trim();
+
+  const validUrl =
+    url.startsWith('https://') &&
+    url.includes('.supabase.co') &&
+    !url.includes('YOUR_');
+
+  const validKey =
+    (key.startsWith('sb_publishable_') && key.length > 20) ||
+    (key.startsWith('eyJ') && key.length > 40);
+
+  return validUrl && validKey;
+};
