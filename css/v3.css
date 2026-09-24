@@ -30,6 +30,9 @@
   color:#fff;
   outline:none;
 }
+body[data-role="public"] .public-hidden,
+body[data-role="public"] .admin-only,
+body[data-role="public"] .super-only{display:none!important}
 
 @media (max-width:1100px){
   .map-toolbar select#map-basin-filter{display:none}
