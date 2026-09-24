@@ -24,7 +24,8 @@ function toast(message, tone='success') {
 function setLoading(on=true) { document.body.classList.toggle('loading',on); }
 
 async function boot() {
-  $('#today-label').textContent = new Intl.DateTimeFormat('th-TH',{dateStyle:'long'}).format(new Date());
+  const today=new Intl.DateTimeFormat('th-TH',{dateStyle:'long'}).format(new Date());
+  $('#today-label').textContent=today;$('#map-date-label').textContent=today;
   bindGlobalEvents();
   if (isSupabaseConfigured()) {
     const session = await service.restoreSession().catch(()=>null);
@@ -104,6 +105,7 @@ function bindGlobalEvents() {
 }
 
 function switchView(name) {
+  document.body.dataset.view=name;
   $$('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${name}`));
   $$('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.view===name));
   const titles={dashboard:['ศูนย์บัญชาการ','ภาพรวมสถานการณ์'],map:['แผนที่เชิงพื้นที่','ติดตามทรัพยากร'],equipment:['ทะเบียนทรัพยากร','คลังอุปกรณ์'],organizations:['การบริหารระบบ','หน่วยงาน อปท.'],users:['การบริหารระบบ','ผู้ใช้งานและสิทธิ์']};
