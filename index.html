@@ -36,6 +36,7 @@
         <label>อีเมล<input id="login-email" type="email" autocomplete="email" placeholder="name@organization.go.th" required></label>
         <label>รหัสผ่าน<input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••" required></label>
         <button class="btn primary wide" type="submit">เข้าสู่ระบบ</button>
+        <button id="public-map" class="btn outline wide" type="button">กลับไปดูแผนที่สาธารณะ</button>
         <button id="demo-login" class="btn ghost wide" type="button">ทดลองใช้งานโหมดสาธิต</button>
         <p id="config-hint" class="form-hint"></p>
       </form>
@@ -46,9 +47,9 @@
     <aside class="sidebar">
       <div class="brand"><div class="brand-mark">CR</div><div><b>FloodOps</b><small>จังหวัดเชียงราย</small></div></div>
       <nav id="main-nav" aria-label="เมนูหลัก">
-        <button data-view="dashboard" class="nav-item active"><span>◫</span>ภาพรวม</button>
+        <button data-view="dashboard" class="nav-item active public-hidden"><span>◫</span>ภาพรวม</button>
         <button data-view="map" class="nav-item"><span>⌖</span>แผนที่ติดตาม</button>
-        <button data-view="equipment" class="nav-item"><span>▤</span>คลังอุปกรณ์</button>
+        <button data-view="equipment" class="nav-item public-hidden"><span>▤</span>คลังอุปกรณ์</button>
         <button data-view="organizations" class="nav-item admin-only"><span>⌂</span>หน่วยงาน อปท.</button>
         <button data-view="users" class="nav-item super-only"><span>♙</span>ผู้ใช้งาน</button>
       </nav>
@@ -65,7 +66,7 @@
     <header class="topbar">
       <button id="mobile-menu" class="icon-btn">☰</button>
       <div><p id="page-kicker" class="eyebrow">ศูนย์บัญชาการ</p><h1 id="page-title">ภาพรวมสถานการณ์</h1></div>
-      <div class="top-actions"><span id="today-label"></span><button id="quick-add" class="btn primary">＋ เพิ่มอุปกรณ์</button></div>
+      <div class="top-actions"><span id="today-label"></span><button id="quick-add" class="btn primary public-hidden">＋ เพิ่มอุปกรณ์</button></div>
     </header>
 
     <main class="workspace">
@@ -82,6 +83,7 @@
       <section id="view-map" class="view map-view">
         <div class="map-toolbar">
           <div class="search-box"><span>⌕</span><input id="map-search" placeholder="ค้นหาชื่ออุปกรณ์ หน่วยงาน หรืออำเภอ"></div>
+          <select id="map-basemap" aria-label="เลือกรูปแบบแผนที่"><option value="street">Street Map</option><option value="satellite">Satellite Map</option></select>
           <select id="map-basin-filter"><option value="">ทุกลุ่มน้ำ</option></select>
           <select id="map-type-filter"><option value="">ทุกประเภท</option></select>
           <select id="map-status-filter"><option value="">ทุกสถานะ</option></select>
