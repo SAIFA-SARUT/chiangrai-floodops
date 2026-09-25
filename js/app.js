@@ -81,7 +81,7 @@ function bindGlobalEvents() {
   $('#main-nav').addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b)switchView(b.dataset.view);});
   $$('[data-go]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.go)));
   $$('[data-action="refresh"]').forEach(b=>b.addEventListener('click',reloadData));
-  $$('[data-action="add-equipment"],#quick-add').forEach(b=>b.addEventListener('click',()=>openEquipmentDialog()));
+  $$('[data-action="add-equipment"]').forEach(b=>b.addEventListener('click',()=>openEquipmentDialog()));
   $('[data-action="add-organization"]').addEventListener('click',()=>openOrganizationDialog());
   $('#mobile-menu').addEventListener('click',()=>$('.sidebar').classList.toggle('open'));
   $('#entity-form').addEventListener('submit',handleDialogSubmit);
@@ -89,6 +89,8 @@ function bindGlobalEvents() {
   $('#equipment-type-filter').addEventListener('change',resetEquipmentPage);
   $('#equipment-basin-filter').addEventListener('change',resetEquipmentPage);
   $('#equipment-status-filter').addEventListener('change',resetEquipmentPage);
+  $('#organization-search').addEventListener('input',renderOrganizations);
+  $('#organization-district-filter').addEventListener('change',renderOrganizations);
   $('#map-search').addEventListener('input',renderMapMarkers);
   $('#map-basemap').addEventListener('change',e=>setBaseMap(e.target.value));
   $('#map-type-filter').addEventListener('change',renderMapMarkers);
@@ -128,6 +130,9 @@ function fillFilters() {
   ['#equipment-status-filter','#map-status-filter'].forEach(sel=>{const el=$(sel),v=el.value;el.innerHTML='<option value="">ทุกสถานะ</option>'+Object.entries(statusMeta).map(([k,m])=>`<option value="${k}">${m.label}</option>`).join('');el.value=v;});
   const basins=[...new Set(state.data.equipment.map(x=>x.basin).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'th'));
   ['#equipment-basin-filter','#map-basin-filter'].forEach(sel=>{const el=$(sel),v=el.value;el.innerHTML='<option value="">ทุกลุ่มน้ำ</option>'+basins.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');el.value=v;});
+  const districts=[...new Set(state.data.organizations.map(x=>x.district).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'th'));
+  const districtEl=$('#organization-district-filter'),districtValue=districtEl.value;
+  districtEl.innerHTML='<option value="">ทุกอำเภอ</option>'+districts.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');districtEl.value=districtValue;
 }
 
 function renderDashboard() {
@@ -142,9 +147,11 @@ function renderDashboard() {
 }
 
 function renderChart() {
-  const ranked=state.data.equipmentTypes.map(t=>({name:t.name,value:state.data.equipment.filter(x=>x.equipment_type_id===t.id).reduce((s,x)=>s+Number(x.quantity||1),0)})).sort((a,b)=>b.value-a.value).slice(0,8),labels=ranked.map(x=>x.name),values=ranked.map(x=>x.value);
+  const ranked=state.data.equipmentTypes.map(t=>({name:t.name,value:state.data.equipment.filter(x=>x.equipment_type_id===t.id).reduce((s,x)=>s+Number(x.quantity||1),0)})).sort((a,b)=>b.value-a.value||a.name.localeCompare(b.name,'th')),labels=ranked.map(x=>x.name),values=ranked.map(x=>x.value);
   if(state.chart)state.chart.destroy();
-  state.chart=new Chart($('#type-chart'),{type:'bar',data:{labels,datasets:[{data:values,backgroundColor:['#0b6bcb','#18a999','#f59e0b','#7457d9','#ea5b3d','#344b5e'],borderRadius:7,barThickness:22}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{family:'Noto Sans Thai'}}},y:{beginAtZero:true,grid:{color:'#edf1f5'},ticks:{precision:0}}}}});
+  $('#type-chart').parentElement.style.height=`${Math.max(420,ranked.length*38)}px`;
+  const valueLabels={id:'horizontalValueLabels',afterDatasetsDraw(chart){const {ctx}=chart,meta=chart.getDatasetMeta(0);ctx.save();ctx.fillStyle='#526573';ctx.font='600 11px Noto Sans Thai';ctx.textBaseline='middle';meta.data.forEach((bar,i)=>ctx.fillText(values[i].toLocaleString('th-TH'),bar.x+7,bar.y));ctx.restore();}};
+  state.chart=new Chart($('#type-chart'),{type:'bar',data:{labels,datasets:[{data:values,backgroundColor:ranked.map((_,i)=>['#7c3aed','#db2777','#0b6bcb','#18a999','#f59e0b','#ea5b3d'][i%6]),borderRadius:7,barThickness:20}]},plugins:[valueLabels],options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:42}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${Number(c.raw).toLocaleString('th-TH')} รายการ`}}},scales:{x:{beginAtZero:true,grid:{color:'#edf1f5'},ticks:{precision:0}},y:{grid:{display:false},ticks:{font:{family:'Noto Sans Thai',size:11},autoSkip:false}}}}});
 }
 
 function getFilteredEquipment() {
@@ -175,8 +182,22 @@ function renderEquipmentPagination(totalPages){
 }
 
 function renderOrganizations() {
-  $('#organization-grid').innerHTML=state.data.organizations.map(o=>{const items=state.data.equipment.filter(x=>x.organization_id===o.id),ready=items.filter(x=>x.status==='ready').length;return `<article class="org-card"><div class="org-icon">${esc(o.short_code||o.short_name?.slice(0,3)||'อปท.')}</div><div class="org-main"><h3>${esc(o.name)}</h3><p>รหัส ${esc(o.official_code||'-')} · ${esc(o.district)} · ${esc(o.phone||'ไม่ระบุโทรศัพท์')}</p><div><span><b>${items.length}</b> รายการ</span><span class="ready-text"><b>${ready}</b> พร้อมใช้</span></div></div><button class="row-action" data-edit-org="${o.id}">แก้ไข</button></article>`;}).join('')||'<div class="empty">ยังไม่มีข้อมูลหน่วยงาน</div>';
+  const q=$('#organization-search').value.trim().toLowerCase(),selectedDistrict=$('#organization-district-filter').value;
+  const organizations=state.data.organizations.filter(o=>(!selectedDistrict||o.district===selectedDistrict)&&(!q||[o.name,o.short_name,o.official_code,o.short_code,o.district].join(' ').toLowerCase().includes(q))).sort((a,b)=>a.name.localeCompare(b.name,'th'));
+  const groups=Map.groupBy?Map.groupBy(organizations,o=>o.district||'ไม่ระบุอำเภอ'):organizations.reduce((m,o)=>{const key=o.district||'ไม่ระบุอำเภอ';if(!m.has(key))m.set(key,[]);m.get(key).push(o);return m;},new Map());
+  $('#organization-grid').innerHTML=[...groups.entries()].sort(([a],[b])=>a.localeCompare(b,'th')).map(([district,orgs])=>`<section class="org-district"><div class="org-district-head"><h3>${esc(district)}</h3><span>${orgs.length.toLocaleString('th-TH')} หน่วยงาน</span></div><div class="organization-grid">${orgs.map(o=>{const items=state.data.equipment.filter(x=>x.organization_id===o.id),ready=items.filter(x=>x.status==='ready').length;return `<article class="org-card"><div class="org-icon">${esc(o.short_code||o.short_name?.slice(0,3)||'อปท.')}</div><div class="org-main"><h3>${esc(o.name)}</h3><p>รหัส ${esc(o.official_code||'-')} · ${esc(o.district)} · ${esc(o.phone||'ไม่ระบุโทรศัพท์')}</p><div><span><b>${items.length}</b> รายการ</span><span class="ready-text"><b>${ready}</b> พร้อมใช้</span></div></div><div class="org-actions"><button class="row-action view-org" data-view-org="${o.id}">ดูข้อมูล</button><button class="row-action" data-edit-org="${o.id}">แก้ไข</button></div></article>`;}).join('')}</div></section>`).join('')||'<div class="empty">ไม่พบหน่วยงานตามเงื่อนไข</div>';
+  $$('[data-view-org]').forEach(b=>b.addEventListener('click',()=>openOrganizationDetail(state.data.organizations.find(x=>x.id===b.dataset.viewOrg))));
   $$('[data-edit-org]').forEach(b=>b.addEventListener('click',()=>openOrganizationDialog(state.data.organizations.find(x=>x.id===b.dataset.editOrg))));
+}
+
+function openOrganizationDetail(org){
+  const items=state.data.equipment.filter(x=>x.organization_id===org.id),statusCounts=Object.fromEntries(Object.keys(statusMeta).map(key=>[key,items.filter(x=>x.status===key).length]));
+  const typeCounts=state.data.equipmentTypes.map(t=>({name:t.name,count:items.filter(x=>x.equipment_type_id===t.id).length})).filter(x=>x.count).sort((a,b)=>b.count-a.count);
+  $('#organization-detail-title').textContent=org.name;
+  $('#organization-detail-body').innerHTML=`<div class="org-detail-meta"><div><span>รหัส อปท.</span><b>${esc(org.official_code||'-')}</b></div><div><span>อำเภอ</span><b>${esc(org.district||'-')}</b></div><div><span>โทรศัพท์</span><b>${esc(org.phone||'ไม่ระบุ')}</b></div></div><div class="org-detail-stats"><div class="org-detail-stat"><span>ทั้งหมด</span><strong>${items.length.toLocaleString('th-TH')}</strong></div>${Object.keys(statusMeta).map(key=>`<div class="org-detail-stat"><span>${esc(statusMeta[key].label)}</span><strong>${statusCounts[key].toLocaleString('th-TH')}</strong></div>`).join('')}</div><div class="org-type-list">${typeCounts.length?typeCounts.map(x=>`<span>${esc(x.name)} <b>${x.count.toLocaleString('th-TH')}</b></span>`).join(''):'<span>ยังไม่มีอุปกรณ์</span>'}</div><div class="table-wrap">${table(['รหัส / อุปกรณ์','ประเภท','พื้นที่','สถานะ'],items.map(x=>[equipmentCell(x),esc(getType(x.equipment_type_id)?.name||'-'),`${esc(x.subdistrict||'-')} · ${esc(x.district||'-')}`,statusBadge(x.status)]),'ยังไม่มีข้อมูลอุปกรณ์')}</div>`;
+  $('#organization-map-button').disabled=!items.length;
+  $('#organization-map-button').onclick=()=>{const dialog=$('#organization-detail-dialog');dialog.close();$('#map-search').value=org.name;switchView('map');setTimeout(renderMapMarkers,100);};
+  $('#organization-detail-dialog').showModal();
 }
 
 function renderUsers() {
