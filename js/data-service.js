@@ -133,6 +133,18 @@ export class DataService {
     const { data,error }=await this.client.from('organizations').upsert(record).select().single(); if(error)throw error; return data;
   }
 
+  async saveMyOrganization(record) {
+    if (this.demo) {
+      const db=demoDb(),profile=db.profiles[0],idx=db.organizations.findIndex(x=>x.id===profile.organization_id);
+      if(idx<0)throw new Error('ไม่พบหน่วยงานของบัญชีนี้');
+      db.organizations[idx]={...db.organizations[idx],...record};saveDemo(db);return db.organizations[idx];
+    }
+    const { data,error }=await this.client.rpc('update_my_organization',{
+      p_name:record.name,p_short_name:record.short_name,p_district:record.district,p_phone:record.phone||null
+    });
+    if(error)throw error;return data;
+  }
+
   async saveProfile(record) {
     if (this.demo) { const db=demoDb(); const idx=db.profiles.findIndex(x=>x.id===record.id); if(idx>=0)db.profiles.splice(idx,1,{...db.profiles[idx],...record}); saveDemo(db); return record; }
     const { data,error }=await this.client.from('profiles').update(record).eq('id',record.id).select().single(); if(error)throw error; return data;
