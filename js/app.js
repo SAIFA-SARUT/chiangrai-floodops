@@ -2,7 +2,7 @@ import { APP_CONFIG, isSupabaseConfigured } from './config.js';
 import { DataService } from './data-service.js';
 
 const service = await new DataService().init();
-const state = { data:{equipment:[],organizations:[],equipmentTypes:[],profiles:[]}, profile:null, chart:null, map:null, baseLayers:null, currentBaseLayer:null, markers:null, boundary:null, searchPoint:null, searchCircle:null, equipmentPage:1, equipmentPageSize:20, importRows:[] };
+const state = { data:{equipment:[],organizations:[],equipmentTypes:[],profiles:[]}, profile:null, chart:null, map:null, baseLayers:null, currentBaseLayer:null, markers:null, boundary:null, searchPoint:null, searchCircle:null, searchMarker:null, searchSource:null, equipmentPage:1, equipmentPageSize:20, importRows:[] };
 const $ = (q, root=document) => root.querySelector(q);
 const $$ = (q, root=document) => [...root.querySelectorAll(q)];
 const statusMeta = {
@@ -25,7 +25,7 @@ function setLoading(on=true) { document.body.classList.toggle('loading',on); }
 
 async function boot() {
   const today=new Intl.DateTimeFormat('th-TH',{dateStyle:'long'}).format(new Date());
-  $('#today-label').textContent=today;$('#map-date-label').textContent=today;
+  $('#today-label').textContent=today;$('#map-date-label').textContent=today;$$('[data-current-date]').forEach(el=>el.textContent=today);
   bindGlobalEvents();
   if (isSupabaseConfigured()) {
     const session = await service.restoreSession().catch(()=>null);
@@ -96,7 +96,7 @@ function bindGlobalEvents() {
   $('#map-type-filter').addEventListener('change',renderMapMarkers);
   $('#map-basin-filter').addEventListener('change',renderMapMarkers);
   $('#map-status-filter').addEventListener('change',renderMapMarkers);
-  $('#radius-input').addEventListener('change',()=>state.searchPoint&&findNearest(state.searchPoint));
+  $('#radius-input').addEventListener('change',()=>state.searchPoint&&findNearest(state.searchPoint,state.searchSource||'click'));
   $('#gps-search').addEventListener('click',useGps);
   $('#clear-map-search').addEventListener('click',clearMapSearch);
   $('#close-nearest').addEventListener('click',()=>$('#nearest-panel').classList.remove('open'));
@@ -362,7 +362,7 @@ function initMap() {
   setBaseMap($('#map-basemap').value||'street');
   state.markers=L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:44}).addTo(state.map);
   fetch('data/chiangrai-province.json').then(r=>r.json()).then(g=>{state.boundary=L.geoJSON(g,{style:{color:'#0b6bcb',weight:2.5,fillColor:'#0b6bcb',fillOpacity:.035}}).addTo(state.map);state.map.fitBounds(state.boundary.getBounds(),{padding:[15,15]});}).catch(()=>{});
-  state.map.on('click',e=>findNearest(e.latlng));
+  state.map.on('click',e=>findNearest(e.latlng,'click'));
 }
 
 function setBaseMap(name){
@@ -375,9 +375,9 @@ function setBaseMap(name){
 function filteredMapItems(){const q=$('#map-search').value.trim().toLowerCase(),basin=$('#map-basin-filter').value,type=$('#map-type-filter').value,status=$('#map-status-filter').value;return state.data.equipment.filter(x=>Number.isFinite(Number(x.latitude))&&Number.isFinite(Number(x.longitude))&&(!q||[x.name,x.code,x.district,x.subdistrict,x.brand,x.registration_number,getOrg(x.organization_id)?.name].join(' ').toLowerCase().includes(q))&&(!basin||x.basin===basin)&&(!type||x.equipment_type_id===type)&&(!status||x.status===status));}
 function renderMapMarkers(){if(!state.map)return;state.markers.clearLayers();filteredMapItems().forEach(x=>{const m=statusMeta[x.status]||{},icon=L.divIcon({className:'equipment-marker-wrap',html:`<div class="equipment-marker ${m.class}">${esc(getType(x.equipment_type_id)?.icon||'●')}</div>`,iconSize:[40,40],iconAnchor:[20,20]});L.marker([x.latitude,x.longitude],{icon}).bindPopup(`<div class="map-popup"><span>${esc(getType(x.equipment_type_id)?.name||'-')}</span><h3>${esc(x.name)}</h3><p>${esc(getOrg(x.organization_id)?.name||'-')}<br>${esc(x.subdistrict||'-')} · ${esc(x.district||'-')}<br>${esc(x.basin||'-')}</p>${statusBadge(x.status)}<hr><b>ทะเบียน:</b> ${esc(x.registration_number||'-')} · <b>ยี่ห้อ:</b> ${esc(x.brand||'-')}<br><b>ติดต่อ:</b> ${esc(x.contact_phone||'ไม่ระบุ')}</div>`).addTo(state.markers);});}
 function distanceKm(a,b){const R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lng-a.lng)*Math.PI/180,la1=a.lat*Math.PI/180,la2=b.lat*Math.PI/180;return 2*R*Math.asin(Math.sqrt(Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2));}
-function findNearest(point){state.searchPoint=point;const radius=Number($('#radius-input').value)||15;if(state.searchCircle)state.map.removeLayer(state.searchCircle);state.searchCircle=L.circle(point,{radius:radius*1000,color:'#ff6b35',fillColor:'#ff6b35',fillOpacity:.08,weight:2}).addTo(state.map);const list=filteredMapItems().map(x=>({...x,distance:distanceKm(point,{lat:Number(x.latitude),lng:Number(x.longitude)})})).filter(x=>x.distance<=radius).sort((a,b)=>a.distance-b.distance).slice(0,8);$('#nearest-list').innerHTML=list.length?list.map((x,i)=>`<button class="nearest-item" data-nearest="${x.id}"><span>${i+1}</span><div><b>${esc(x.name)}</b><small>${esc(getOrg(x.organization_id)?.short_name||'-')} · ${statusMeta[x.status]?.label}</small></div><strong>${x.distance.toFixed(1)} กม.</strong></button>`).join(''):`<div class="empty">ไม่พบอุปกรณ์ในรัศมี ${radius} กม.</div>`;$('#nearest-panel').classList.add('open');$$('[data-nearest]').forEach(b=>b.addEventListener('click',()=>{const x=state.data.equipment.find(v=>v.id===b.dataset.nearest);state.map.flyTo([x.latitude,x.longitude],15);}));}
-function useGps(){if(!navigator.geolocation)return toast('เบราว์เซอร์นี้ไม่รองรับ GPS','error');navigator.geolocation.getCurrentPosition(p=>{const ll=L.latLng(p.coords.latitude,p.coords.longitude);state.map.flyTo(ll,13);findNearest(ll);},e=>toast(`ไม่สามารถอ่าน GPS: ${e.message}`,'error'),{enableHighAccuracy:true,timeout:10000});}
-function clearMapSearch(){$('#map-search').value='';$('#map-basin-filter').value='';$('#map-type-filter').value='';$('#map-status-filter').value='';if(state.searchCircle)state.map.removeLayer(state.searchCircle);state.searchPoint=null;$('#nearest-panel').classList.remove('open');renderMapMarkers();}
+function findNearest(point,source='click'){state.searchPoint=point;state.searchSource=source;const radius=Number($('#radius-input').value)||15;if(state.searchCircle)state.map.removeLayer(state.searchCircle);if(state.searchMarker)state.map.removeLayer(state.searchMarker);const gps=source==='gps',label=gps?'ตำแหน่งของฉัน':'จุดที่เลือก',symbol=gps?'◎':'📍',color=gps?'#0b6bcb':'#e77922';state.searchCircle=L.circle(point,{radius:radius*1000,color,fillColor:color,fillOpacity:.08,weight:2}).addTo(state.map);const originIcon=L.divIcon({className:'search-origin-wrap',html:`<div class="search-origin ${gps?'gps':'clicked'}"><span>${symbol}</span><b>${label}</b></div>`,iconSize:[126,46],iconAnchor:[20,38]});state.searchMarker=L.marker(point,{icon:originIcon,zIndexOffset:3000,keyboard:false}).addTo(state.map);const list=filteredMapItems().map(x=>({...x,distance:distanceKm(point,{lat:Number(x.latitude),lng:Number(x.longitude)})})).filter(x=>x.distance<=radius).sort((a,b)=>a.distance-b.distance).slice(0,8);$('#nearest-list').innerHTML=list.length?list.map((x,i)=>`<button class="nearest-item" data-nearest="${x.id}"><span>${i+1}</span><div><b>${esc(x.name)}</b><small>${esc(getOrg(x.organization_id)?.short_name||'-')} · ${statusMeta[x.status]?.label}</small></div><strong>${x.distance.toFixed(1)} กม.</strong></button>`).join(''):`<div class="empty">ไม่พบอุปกรณ์ในรัศมี ${radius} กม.</div>`;$('#nearest-panel').classList.add('open');$$('[data-nearest]').forEach(b=>b.addEventListener('click',()=>{const x=state.data.equipment.find(v=>v.id===b.dataset.nearest);state.map.flyTo([x.latitude,x.longitude],15);}));}
+function useGps(){if(!navigator.geolocation)return toast('เบราว์เซอร์นี้ไม่รองรับ GPS','error');navigator.geolocation.getCurrentPosition(p=>{const ll=L.latLng(p.coords.latitude,p.coords.longitude);state.map.flyTo(ll,13);findNearest(ll,'gps');},e=>toast(`ไม่สามารถอ่าน GPS: ${e.message}`,'error'),{enableHighAccuracy:true,timeout:10000});}
+function clearMapSearch(){$('#map-search').value='';$('#map-basin-filter').value='';$('#map-type-filter').value='';$('#map-status-filter').value='';if(state.searchCircle)state.map.removeLayer(state.searchCircle);if(state.searchMarker)state.map.removeLayer(state.searchMarker);state.searchCircle=null;state.searchMarker=null;state.searchPoint=null;state.searchSource=null;$('#nearest-panel').classList.remove('open');renderMapMarkers();}
 
 function input(name,label,value='',type='text',attrs=''){return `<label>${label}<input name="${name}" type="${type}" value="${esc(value)}" ${attrs}></label>`;}
 function select(name,label,options,value='',attrs=''){return `<label>${label}<select name="${name}" ${attrs}>${options.map(([v,l])=>`<option value="${v}" ${String(v)===String(value)?'selected':''}>${esc(l)}</option>`).join('')}</select></label>`;}
