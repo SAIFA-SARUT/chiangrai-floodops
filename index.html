@@ -11,15 +11,15 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-  <link rel="stylesheet" href="css/app.css?v=8" />
-  <link rel="stylesheet" href="css/v3.css?v=8" />
+  <link rel="stylesheet" href="css/app.css?v=9" />
+  <link rel="stylesheet" href="css/v3.css?v=9" />
 </head>
 <body>
   <div id="toast-root" class="toast-root" aria-live="polite"></div>
 
   <section id="login-screen" class="login-screen hidden">
     <div class="login-art">
-      <div class="brand-mark large">CRPAO</div>
+      <img class="login-pdoss-logo" src="assets/pdoss-chiangrai-logo.png" alt="PDOSS Chiang Rai" />
       <div>
         <p class="eyebrow">PDOSS · DISASTER RELIEF EQUIPMENT</p>
         <h1>ทุกทรัพยากร<br>พร้อมรับมือทุกสถานการณ์</h1>
@@ -29,7 +29,7 @@
     </div>
     <div class="login-panel">
       <form id="login-form" class="login-card">
-        <div class="mobile-brand"><div class="brand-mark">CRPAO</div><div><b>PDOSS</b><small>Disaster Relief Equipment</small></div></div>
+        <div class="mobile-brand"><div class="brand-mark"><img src="assets/crpao-seal.png" alt="ตราองค์การบริหารส่วนจังหวัดเชียงราย"></div><div><b>PDOSS</b><small>Disaster Relief Equipment</small></div></div>
         <p class="eyebrow">สำหรับเจ้าหน้าที่</p>
         <h2>เข้าสู่ระบบ</h2>
         <p class="muted">ใช้บัญชีที่ผู้ดูแลระบบกำหนดให้</p>
@@ -45,7 +45,7 @@
 
   <div id="app-shell" class="app-shell hidden">
     <aside class="sidebar">
-      <div class="brand"><div class="brand-mark">CRPAO</div><div><b>PDOSS</b><small>Disaster Relief Equipment</small></div></div>
+      <div class="brand"><div class="brand-mark"><img src="assets/crpao-seal.png" alt="ตราองค์การบริหารส่วนจังหวัดเชียงราย"></div><div><b>PDOSS</b><small>Disaster Relief Equipment</small></div></div>
       <nav id="main-nav" aria-label="เมนูหลัก">
         <button data-view="dashboard" class="nav-item active public-hidden"><span>◫</span>ภาพรวม</button>
         <button data-view="map" class="nav-item"><span>⌖</span>แผนที่ติดตาม</button>
@@ -53,6 +53,10 @@
         <button data-view="organizations" class="nav-item admin-only"><span>⌂</span>หน่วยงาน อปท.</button>
         <button data-view="users" class="nav-item super-only"><span>♙</span>ผู้ใช้งาน</button>
       </nav>
+      <figure class="executive-card" aria-label="นายกองค์การบริหารส่วนจังหวัดเชียงราย">
+        <img class="executive-photo" src="assets/crpao-president.png" alt="นายกองค์การบริหารส่วนจังหวัดเชียงราย">
+        <img class="executive-name" src="assets/crpao-president-name.png" alt="ชื่อและตำแหน่งนายกองค์การบริหารส่วนจังหวัดเชียงราย">
+      </figure>
       <div class="sidebar-foot">
         <div id="connection-status" class="connection-pill"><i></i><span>กำลังตรวจสอบระบบ</span></div>
         <div class="user-mini">
@@ -153,6 +157,6 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-  <script type="module" src="js/app.js?v=8"></script>
+  <script type="module" src="js/app.js?v=9"></script>
 </body>
 </html>
