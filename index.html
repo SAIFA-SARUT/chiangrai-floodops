@@ -11,8 +11,8 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-  <link rel="stylesheet" href="css/app.css?v=9" />
-  <link rel="stylesheet" href="css/v3.css?v=9" />
+  <link rel="stylesheet" href="css/app.css?v=12" />
+  <link rel="stylesheet" href="css/v3.css?v=12" />
 </head>
 <body>
   <div id="toast-root" class="toast-root" aria-live="polite"></div>
@@ -50,6 +50,7 @@
         <button data-view="dashboard" class="nav-item active public-hidden"><span>◫</span>ภาพรวม</button>
         <button data-view="map" class="nav-item"><span>⌖</span>แผนที่ติดตาม</button>
         <button data-view="equipment" class="nav-item public-hidden"><span>▤</span>คลังอุปกรณ์</button>
+        <button data-view="my-organization" class="nav-item officer-only"><span>⌂</span>ข้อมูล อปท. ของฉัน</button>
         <button data-view="organizations" class="nav-item admin-only"><span>⌂</span>หน่วยงาน อปท.</button>
         <button data-view="users" class="nav-item super-only"><span>♙</span>ผู้ใช้งาน</button>
       </nav>
@@ -109,6 +110,17 @@
         <div class="panel"><div id="equipment-table" class="table-wrap"></div><div class="table-footer"><div id="equipment-count" class="table-foot"></div><nav id="equipment-pagination" class="pagination" aria-label="เปลี่ยนหน้ารายการอุปกรณ์"></nav></div></div>
       </section>
 
+      <section id="view-my-organization" class="view officer-only">
+        <div class="section-head"><div><p class="eyebrow">พื้นที่ปฏิบัติงานของฉัน</p><h2 id="my-org-title">ข้อมูล อปท. ของฉัน</h2><p>ตรวจสอบความครบถ้วนและปรับปรุงข้อมูลของหน่วยงาน</p></div><div class="section-actions"><span class="view-date" data-current-date></span><div class="action-group"><button id="my-org-edit" class="btn outline">แก้ไขข้อมูลหน่วยงาน</button><button id="my-org-map" class="btn outline">ดูบนแผนที่</button><button class="btn primary" data-action="add-equipment">＋ เพิ่มอุปกรณ์</button></div></div></div>
+        <div id="my-org-profile" class="my-org-profile"></div>
+        <div id="my-org-stats" class="stat-grid my-org-stats"></div>
+        <div class="dashboard-grid my-org-grid">
+          <article class="panel"><div class="panel-head"><div><h3>ความครบถ้วนของข้อมูล</h3><p>รายการที่ควรตรวจสอบหรือปรับปรุง</p></div></div><div id="my-org-completeness" class="completeness-list"></div></article>
+          <article class="panel"><div class="panel-head"><div><h3>อุปกรณ์แยกตามประเภท</h3><p>เฉพาะรายการของหน่วยงานนี้</p></div></div><div id="my-org-types" class="org-type-summary"></div></article>
+          <article class="panel span-2"><div class="panel-head"><div><h3>รายการอุปกรณ์ของหน่วยงาน</h3><p id="my-org-equipment-count"></p></div><div class="action-group"><button id="my-org-export-csv" class="btn outline">ดาวน์โหลด CSV</button><button id="my-org-export-xlsx" class="btn outline">ดาวน์โหลด Excel</button><button id="my-org-import-xlsx" class="btn outline">นำเข้า Excel</button></div></div><div id="my-org-equipment-table" class="table-wrap"></div></article>
+        </div>
+      </section>
+
       <section id="view-organizations" class="view">
         <div class="section-head"><div><h2>หน่วยงาน อปท.</h2><p>หน่วยงานที่ร่วมรายงานข้อมูลในระบบ</p></div><div class="section-actions"><span class="view-date" data-current-date></span><button class="btn primary" data-action="add-organization">＋ เพิ่มหน่วยงาน</button></div></div>
         <div class="filter-bar organization-filter"><div class="search-box grow"><span>⌕</span><input id="organization-search" placeholder="ค้นหาชื่อ รหัส หรืออำเภอ"></div><select id="organization-district-filter"><option value="">ทุกอำเภอ</option></select></div>
@@ -157,6 +169,6 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-  <script type="module" src="js/app.js?v=9"></script>
+  <script type="module" src="js/app.js?v=12"></script>
 </body>
 </html>
