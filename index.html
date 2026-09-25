@@ -71,7 +71,7 @@
 
     <main class="workspace">
       <section id="view-dashboard" class="view active">
-        <div class="section-head"><div><h2>ความพร้อมของทรัพยากร</h2><p>ข้อมูลล่าสุดจากองค์กรปกครองส่วนท้องถิ่นในจังหวัดเชียงราย</p></div><div class="action-group export-ignore"><button id="export-dashboard-png" class="btn outline">ดาวน์โหลด PNG</button><button id="export-dashboard-pdf" class="btn outline">ดาวน์โหลด PDF</button><button class="btn outline" data-action="refresh">↻ อัปเดตข้อมูล</button></div></div>
+        <div class="section-head"><div><h2>ความพร้อมของทรัพยากร</h2><p>ข้อมูลล่าสุดจากองค์กรปกครองส่วนท้องถิ่นในจังหวัดเชียงราย</p></div><div class="section-actions"><span class="view-date" data-current-date></span><div class="action-group export-ignore"><button id="export-dashboard-png" class="btn outline">ดาวน์โหลด PNG</button><button id="export-dashboard-pdf" class="btn outline">ดาวน์โหลด PDF</button><button class="btn outline" data-action="refresh">↻ อัปเดตข้อมูล</button></div></div></div>
         <div id="stat-grid" class="stat-grid"></div>
         <div class="dashboard-grid">
           <article class="panel chart-panel"><div class="panel-head"><div><h3>อุปกรณ์แยกตามประเภท</h3><p>จำนวนรายการที่ขึ้นทะเบียน</p></div></div><div class="chart-wrap"><canvas id="type-chart"></canvas></div></article>
@@ -100,19 +100,19 @@
       </section>
 
       <section id="view-equipment" class="view">
-        <div class="section-head"><div><h2>คลังอุปกรณ์</h2><p>ตรวจสอบและปรับปรุงข้อมูลทรัพยากรของแต่ละ อปท.</p></div><div class="action-group"><button id="export-equipment-csv" class="btn outline">ดาวน์โหลด CSV</button><button id="export-equipment-xlsx" class="btn outline">ดาวน์โหลด Excel</button><button id="import-equipment-xlsx" class="btn outline">นำเข้า Excel</button><button class="btn primary" data-action="add-equipment">＋ เพิ่มอุปกรณ์</button></div></div>
+        <div class="section-head"><div><h2>คลังอุปกรณ์</h2><p>ตรวจสอบและปรับปรุงข้อมูลทรัพยากรของแต่ละ อปท.</p></div><div class="section-actions"><span class="view-date" data-current-date></span><div class="action-group"><button id="export-equipment-csv" class="btn outline">ดาวน์โหลด CSV</button><button id="export-equipment-xlsx" class="btn outline">ดาวน์โหลด Excel</button><button id="import-equipment-xlsx" class="btn outline">นำเข้า Excel</button><button class="btn primary" data-action="add-equipment">＋ เพิ่มอุปกรณ์</button></div></div></div>
         <div class="filter-bar"><div class="search-box grow"><span>⌕</span><input id="equipment-search" placeholder="ค้นหารหัส ชื่ออุปกรณ์ ทะเบียนรถ หรือหน่วยงาน"></div><select id="equipment-basin-filter"><option value="">ทุกลุ่มน้ำ</option></select><select id="equipment-type-filter"><option value="">ทุกประเภท</option></select><select id="equipment-status-filter"><option value="">ทุกสถานะ</option></select></div>
         <div class="panel"><div id="equipment-table" class="table-wrap"></div><div class="table-footer"><div id="equipment-count" class="table-foot"></div><nav id="equipment-pagination" class="pagination" aria-label="เปลี่ยนหน้ารายการอุปกรณ์"></nav></div></div>
       </section>
 
       <section id="view-organizations" class="view">
-        <div class="section-head"><div><h2>หน่วยงาน อปท.</h2><p>หน่วยงานที่ร่วมรายงานข้อมูลในระบบ</p></div><button class="btn primary" data-action="add-organization">＋ เพิ่มหน่วยงาน</button></div>
+        <div class="section-head"><div><h2>หน่วยงาน อปท.</h2><p>หน่วยงานที่ร่วมรายงานข้อมูลในระบบ</p></div><div class="section-actions"><span class="view-date" data-current-date></span><button class="btn primary" data-action="add-organization">＋ เพิ่มหน่วยงาน</button></div></div>
         <div class="filter-bar organization-filter"><div class="search-box grow"><span>⌕</span><input id="organization-search" placeholder="ค้นหาชื่อ รหัส หรืออำเภอ"></div><select id="organization-district-filter"><option value="">ทุกอำเภอ</option></select></div>
         <div id="organization-grid" class="organization-groups"></div>
       </section>
 
       <section id="view-users" class="view">
-        <div class="section-head"><div><h2>ผู้ใช้งานและสิทธิ์</h2><p>กำหนดบทบาทและหน่วยงานให้บัญชีที่สมัครใน Supabase</p></div></div>
+        <div class="section-head"><div><h2>ผู้ใช้งานและสิทธิ์</h2><p>กำหนดบทบาทและหน่วยงานให้บัญชีที่สมัครใน Supabase</p></div><span class="view-date" data-current-date></span></div>
         <div class="notice">บัญชีผู้ใช้ต้องถูกสร้างใน Supabase Authentication ก่อน จากนั้น Super Admin จึงกำหนดหน่วยงานและบทบาทในหน้านี้</div>
         <div class="panel"><div id="users-table" class="table-wrap"></div></div>
       </section>
