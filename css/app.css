@@ -53,7 +53,34 @@ body:not([data-role="officer"]) .officer-only{display:none!important}.my-org-pro
 
 .login-hero{grid-template-columns:minmax(390px,1.22fr) minmax(260px,.78fr)}
 .login-executive img{transform:scaleX(-1)}
-.login-stat{transform:translateY(-16px)}
+.login-stat{transform:none;margin-top:24px}
 .login-hero-copy .nowrap{white-space:nowrap}
 .login-executive p{font-size:1.14rem!important;letter-spacing:.1em}
 @media(min-width:721px) and (max-height:820px){.login-executive p{font-size:.92rem!important}}
+
+/* Enlarged login identity and hero */
+@media(min-width:821px){
+  .login-identity .login-pdoss-logo{width:430px;height:185px}
+  .login-identity{min-height:168px}
+  .login-center-name strong{font-size:1.55rem}
+  .login-center-name span{font-size:1.08rem}
+  .login-hero{min-height:500px}
+  .login-executive img{width:min(100%,480px);height:470px}
+  .login-executive p{font-size:1.32rem!important}
+  .login-hero-copy>p{font-size:1.16rem;line-height:1.65}
+  .login-stat strong{font-size:2.65rem}
+  .login-stat span{font-size:1rem}
+}
+@media(min-width:721px) and (max-height:820px){
+  .login-identity .login-pdoss-logo{width:280px;height:112px}
+  .login-identity{min-height:110px}
+  .login-center-name strong{font-size:1.18rem}
+  .login-center-name span{font-size:.86rem}
+  .login-hero{min-height:385px}
+  .login-executive img{width:min(100%,390px);height:360px}
+  .login-executive p{font-size:1rem!important}
+  .login-hero-copy>p{font-size:1rem}
+  .login-stat{margin-top:16px}
+  .login-stat strong{font-size:2rem}
+  .login-stat span{font-size:.82rem}
+}
