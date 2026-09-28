@@ -11,19 +11,27 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-  <link rel="stylesheet" href="css/app.css?v=12" />
-  <link rel="stylesheet" href="css/v3.css?v=12" />
+  <link rel="stylesheet" href="css/app.css?v=14" />
+  <link rel="stylesheet" href="css/v3.css?v=14" />
 </head>
 <body>
   <div id="toast-root" class="toast-root" aria-live="polite"></div>
 
   <section id="login-screen" class="login-screen hidden">
     <div class="login-art">
-      <img class="login-pdoss-logo" src="assets/pdoss-chiangrai-logo.png" alt="PDOSS Chiang Rai" />
-      <div>
-        <p class="eyebrow">PDOSS · DISASTER RELIEF EQUIPMENT</p>
-        <h1>ทุกทรัพยากร<br>พร้อมรับมือทุกสถานการณ์</h1>
-        <p>ศูนย์กลางข้อมูลอุปกรณ์ป้องกันและบรรเทาอุทกภัยขององค์กรปกครองส่วนท้องถิ่น จังหวัดเชียงราย</p>
+      <div class="login-identity">
+        <img class="login-pdoss-logo" src="assets/pdoss-chiangrai-logo.png" alt="PDOSS Chiang Rai" />
+        <div class="login-center-name"><strong>ศูนย์บริหารจัดการสาธารณภัยแบบเบ็ดเสร็จ</strong><span>Public Disaster One-Stop Service: PDOSS</span></div>
+      </div>
+      <div class="login-hero">
+        <div class="login-hero-copy">
+          <h1>ทุกทรัพยากร<br>พร้อมรับมือ<br><span class="nowrap">ทุกสถานการณ์</span></h1>
+          <p>ศูนย์ข้อมูลอุปกรณ์ป้องกันและบรรเทาสาธารณภัยขององค์กรปกครองส่วนท้องถิ่น จังหวัดเชียงราย</p>
+        </div>
+        <div class="login-executive">
+          <img src="assets/crpao-president-login.png" alt="นายกองค์การบริหารส่วนจังหวัดเชียงราย">
+          <p>PDOSS · DISASTER RELIEF EQUIPMENT</p>
+        </div>
       </div>
       <div class="login-stat"><strong>18</strong><span>อำเภอในจังหวัดเชียงราย</span></div>
     </div>
@@ -56,7 +64,7 @@
       </nav>
       <figure class="executive-card" aria-label="นายกองค์การบริหารส่วนจังหวัดเชียงราย">
         <img class="executive-photo" src="assets/crpao-president.png" alt="นายกองค์การบริหารส่วนจังหวัดเชียงราย">
-        <img class="executive-name" src="assets/crpao-president-name.png" alt="ชื่อและตำแหน่งนายกองค์การบริหารส่วนจังหวัดเชียงราย">
+        <figcaption class="executive-name-text"><strong>นางอทิตาธร วันไชยธนวงศ์</strong><span>นายกองค์การบริหารส่วนจังหวัดเชียงราย</span></figcaption>
       </figure>
       <div class="sidebar-foot">
         <div id="connection-status" class="connection-pill"><i></i><span>กำลังตรวจสอบระบบ</span></div>
@@ -169,6 +177,6 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-  <script type="module" src="js/app.js?v=12"></script>
+  <script type="module" src="js/app.js?v=14"></script>
 </body>
 </html>
