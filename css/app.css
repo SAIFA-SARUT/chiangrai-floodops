@@ -126,7 +126,8 @@ body:not([data-role="officer"]) .officer-only{display:none!important}.my-org-pro
 .executive-card {
   width: 260px;
   padding: 0;
-  background: #ffffff;
+  background: transparent;
+  border: none;
   border-radius: 14px;
   overflow: hidden;
 }
@@ -136,7 +137,7 @@ body:not([data-role="officer"]) .officer-only{display:none!important}.my-org-pro
   height: auto;
   max-height: none;
   object-fit: contain;
-  object-position: center;
+  object-position: center bottom;
   transform: none;
 }
 
