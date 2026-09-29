@@ -122,3 +122,24 @@ body:not([data-role="officer"]) .officer-only{display:none!important}.my-org-pro
     padding: 28px 22px 40px;
   }
 }
+/* รูปนายกแบบสำเร็จรูปในแถบเมนู */
+.executive-card {
+  width: 260px;
+  padding: 0;
+  background: #ffffff;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.executive-photo {
+  width: 100%;
+  height: auto;
+  max-height: none;
+  object-fit: contain;
+  object-position: center;
+  transform: none;
+}
+
+.executive-name-text {
+  display: none;
+}
