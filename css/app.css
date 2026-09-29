@@ -84,3 +84,41 @@ body:not([data-role="officer"]) .officer-only{display:none!important}.my-org-pro
   .login-stat strong{font-size:2rem}
   .login-stat span{font-size:.82rem}
 }
+/* ภาพหน้าล็อกอิน PDOSS */
+.login-art.login-poster {
+  padding: 0;
+  gap: 0;
+  background-color: #f7f9fd;
+  background-image: url('../assets/pdoss-login-poster.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.login-art.login-poster::after {
+  display: none;
+}
+
+.login-art.login-poster > * {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .login-screen {
+    min-height: 100vh;
+    align-content: start;
+  }
+
+  .login-art.login-poster {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    aspect-ratio: 1680 / 1200;
+    background-size: contain;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .login-panel {
+    padding: 28px 22px 40px;
+  }
+}
