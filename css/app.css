@@ -138,7 +138,7 @@ body:not([data-role="officer"]) .officer-only{display:none!important}.my-org-pro
   max-height: none;
   object-fit: contain;
   object-position: center bottom;
-  transform: translateX(-8px);
+  transform: translateX(-14px);
 }
 
 .executive-name-text {
