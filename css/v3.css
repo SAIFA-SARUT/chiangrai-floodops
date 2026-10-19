@@ -30,6 +30,18 @@
   color:#fff;
   outline:none;
 }
+
+/* Keep account controls visible when new navigation items are added. */
+.sidebar{overflow:hidden}
+.sidebar #main-nav{flex:0 1 auto;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent}
+.sidebar-foot{flex:0 0 auto;background:var(--navy);position:relative;z-index:2}
+@media (min-width:721px) and (max-height:900px){
+  .executive-card{width:205px!important;margin:4px auto 3px!important;flex:0 1 145px;min-height:80px}
+  .executive-photo{height:100%!important;max-height:145px!important;width:100%!important;object-fit:contain!important;transform:translateX(-10px)!important}
+  .connection-pill{padding-top:6px;padding-bottom:6px}
+  .user-mini .logout-btn{min-height:36px}
+}
+@media (min-width:721px) and (max-height:740px){.executive-card{display:none!important}}
 body[data-role="public"] .public-hidden,
 body[data-role="public"] .admin-only,
 body[data-role="public"] .super-only{display:none!important}
