@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-  <link rel="stylesheet" href="css/app.css?v=21" />
+  <link rel="stylesheet" href="css/app.css?v=22" />
   <link rel="stylesheet" href="css/v3.css?v=16" />
 </head>
 <body>
@@ -57,6 +57,7 @@
       <nav id="main-nav" aria-label="เมนูหลัก">
         <button data-view="dashboard" class="nav-item active public-hidden"><span>◫</span>ภาพรวม</button>
         <button data-view="map" class="nav-item"><span>⌖</span>แผนที่ติดตาม</button>
+        <button data-view="risk" class="nav-item public-hidden"><span>⚠</span>พื้นที่เสี่ยงภัย</button>
         <button data-view="equipment" class="nav-item public-hidden"><span>▤</span>คลังอุปกรณ์</button>
         <button data-view="my-organization" class="nav-item officer-only"><span>⌂</span>ข้อมูล อปท. ของฉัน</button>
         <button data-view="organizations" class="nav-item admin-only"><span>⌂</span>หน่วยงาน อปท.</button>
@@ -96,6 +97,7 @@
         <div class="map-toolbar">
           <div class="search-box"><span>⌕</span><input id="map-search" placeholder="ค้นหาชื่ออุปกรณ์ หน่วยงาน หรืออำเภอ"></div>
           <select id="map-basemap" aria-label="เลือกรูปแบบแผนที่"><option value="street">🗺️ Street Map</option><option value="satellite">🛰️ Satellite Map</option></select>
+          <select id="map-boundary-level" aria-label="เลือกระดับขอบเขต"><option value="1">ขอบเขตจังหวัด</option><option value="2" selected>ขอบเขตอำเภอ</option><option value="3">ขอบเขตตำบล</option></select>
           <select id="map-basin-filter"><option value="">ทุกลุ่มน้ำ</option></select>
           <select id="map-type-filter"><option value="">ทุกประเภท</option></select>
           <select id="map-status-filter"><option value="">ทุกสถานะ</option></select>
@@ -103,12 +105,19 @@
           <button id="clear-map-search" class="btn ghost">ล้าง</button>
         </div>
         <div id="map"></div>
+        <div id="risk-legend" class="risk-legend"><b>ระดับความเสี่ยง</b><div id="risk-legend-items"></div><small>คลิกพื้นที่เพื่อดูรายละเอียด</small></div>
         <span id="map-date-label" class="map-date-label"></span>
         <aside id="nearest-panel" class="nearest-panel">
           <div class="panel-head"><div><p class="eyebrow">ค้นหาใกล้จุดเกิดเหตุ</p><h3>อุปกรณ์ที่ใกล้ที่สุด</h3></div><button id="close-nearest" class="icon-btn">×</button></div>
           <label>รัศมีค้นหา <span><input id="radius-input" type="number" min="1" max="100" value="15"> กม.</span></label>
           <div id="nearest-list"><p class="empty">คลิกบนแผนที่หรือใช้ตำแหน่ง GPS เพื่อเริ่มค้นหา</p></div>
         </aside>
+      </section>
+
+      <section id="view-risk" class="view public-hidden">
+        <div class="section-head"><div><p class="eyebrow">การเฝ้าระวังเชิงพื้นที่</p><h2>ประกาศพื้นที่เสี่ยงภัย</h2><p>สร้างและติดตามประกาศตามขอบเขตจังหวัด อำเภอ และตำบล</p></div><div class="section-actions"><span class="view-date" data-current-date></span><button id="add-risk" class="btn primary">＋ สร้างประกาศ</button></div></div>
+        <div class="risk-summary" id="risk-summary"></div>
+        <div class="panel"><div class="panel-head"><div><h3>รายการประกาศ</h3><p>ฉบับร่าง รออนุมัติ และประกาศที่กำลังมีผล</p></div></div><div id="risk-table" class="table-wrap"></div></div>
       </section>
 
       <section id="view-equipment" class="view">
@@ -150,6 +159,26 @@
     </form>
   </dialog>
 
+  <dialog id="risk-dialog" class="risk-dialog">
+    <form id="risk-form" method="dialog">
+      <div class="dialog-head"><div><p class="eyebrow">จัดการพื้นที่เสี่ยงภัย</p><h2 id="risk-dialog-title">สร้างประกาศ</h2></div><button class="icon-btn" value="cancel" formnovalidate>×</button></div>
+      <input id="risk-id" name="id" type="hidden">
+      <div class="form-grid">
+        <label class="span-2">ชื่อประกาศ<input id="risk-title" name="title" required></label>
+        <label>ประเภทภัย<select id="risk-hazard" name="hazard_type_id" required></select></label>
+        <label>ระดับความเสี่ยง<select id="risk-level" name="risk_level_id" required></select></label>
+        <label>ระดับพื้นที่<select id="risk-area-level"><option value="1">จังหวัด</option><option value="2">อำเภอ</option><option value="3" selected>ตำบล</option></select></label>
+        <label>พื้นที่<select id="risk-area" name="area_code" required></select></label>
+        <label>เริ่มมีผล<input id="risk-start" name="starts_at" type="datetime-local" required></label>
+        <label>สิ้นสุด<input id="risk-end" name="ends_at" type="datetime-local"></label>
+        <label class="span-2">รายละเอียด<textarea id="risk-description" name="description" rows="3"></textarea></label>
+        <label class="span-2">คำแนะนำประชาชน<textarea id="risk-recommendations" name="recommendations" rows="3"></textarea></label>
+        <label>สถานะ<select id="risk-status" name="status"><option value="draft">บันทึกฉบับร่าง</option><option value="submitted">ส่งให้แอดมินอนุมัติ</option></select></label>
+      </div>
+      <div class="dialog-actions"><button class="btn ghost" value="cancel" formnovalidate>ยกเลิก</button><button class="btn primary" value="default">บันทึกข้อมูล</button></div>
+    </form>
+  </dialog>
+
   <dialog id="import-dialog">
     <form id="import-form" method="dialog">
       <div class="dialog-head"><div><p class="eyebrow">นำเข้าข้อมูลจำนวนมาก</p><h2>นำเข้าอุปกรณ์ด้วย Excel</h2></div><button class="icon-btn" value="cancel" formnovalidate>×</button></div>
@@ -176,6 +205,6 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-  <script type="module" src="js/app.js?v=15"></script>
+  <script type="module" src="js/app.js?v=16"></script>
 </body>
 </html>

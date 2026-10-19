@@ -52,31 +52,54 @@ export class DataService {
   }
 
   async loadAll() {
-    if (this.demo) return demoDb();
-    const [eq, org, types, profiles] = await Promise.all([
+    if (this.demo) return { ...demoDb(), administrativeAreas:[], hazardTypes:[], riskLevels:[], activeRisks:[], riskDeclarations:[], riskDeclarationAreas:[], organizationAdminAreas:[] };
+    const [eq, org, types, profiles, areas, hazards, levels, activeRisks, declarations, declarationAreas, organizationAdminAreas] = await Promise.all([
       this.client.from('equipment').select('*, organizations(name,short_name), equipment_types(name,icon)').order('updated_at', { ascending:false }),
       this.client.from('organizations').select('*').order('name'),
       this.client.from('equipment_types').select('*').order('name'),
-      this.client.from('profiles').select('*, organizations(name,short_name)').order('full_name')
+      this.client.from('profiles').select('*, organizations(name,short_name)').order('full_name'),
+      this.client.from('administrative_areas').select('area_code,area_level,parent_code,name_th,name_en,center_lat,center_lon').order('area_code'),
+      this.client.from('hazard_types').select('*').eq('active',true).order('sort_order'),
+      this.client.from('risk_levels').select('*').eq('active',true).order('severity'),
+      this.client.from('public_active_risk_areas').select('declaration_id,reference_no,title,description,recommendations,starts_at,ends_at,updated_at,hazard_code,hazard_name_th,hazard_icon,risk_code,risk_name_th,color_hex,severity,area_code,area_level,parent_code,area_name_th,area_name_en'),
+      this.client.from('risk_declarations').select('*, hazard_types(code,name_th,icon), risk_levels(code,name_th,color_hex,severity), organizations(name,short_name)').order('created_at',{ascending:false}),
+      this.client.from('risk_declaration_areas').select('*'),
+      this.client.from('organization_admin_areas').select('*').eq('can_manage_risk',true)
     ]);
-    const firstError = [eq, org, types, profiles].find(r => r.error)?.error;
+    const firstError = [eq, org, types, profiles, areas, hazards, levels, activeRisks, declarations, declarationAreas, organizationAdminAreas].find(r => r.error)?.error;
     if (firstError) throw firstError;
-    return { equipment:eq.data, organizations:org.data, equipmentTypes:types.data, profiles:profiles.data };
+    return { equipment:eq.data, organizations:org.data, equipmentTypes:types.data, profiles:profiles.data, administrativeAreas:areas.data, hazardTypes:hazards.data, riskLevels:levels.data, activeRisks:activeRisks.data, riskDeclarations:declarations.data, riskDeclarationAreas:declarationAreas.data, organizationAdminAreas:organizationAdminAreas.data };
   }
 
   async loadPublic() {
     if (this.demo) {
       const db=demoDb();
-      return { equipment:db.equipment, organizations:db.organizations, equipmentTypes:db.equipmentTypes, profiles:[] };
+      return { equipment:db.equipment, organizations:db.organizations, equipmentTypes:db.equipmentTypes, profiles:[], administrativeAreas:[], hazardTypes:[], riskLevels:[], activeRisks:[], riskDeclarations:[], riskDeclarationAreas:[] };
     }
-    const [eq,org,types]=await Promise.all([
+    const [eq,org,types,areas,hazards,levels,activeRisks]=await Promise.all([
       this.client.from('public_equipment_map').select('*').order('code'),
       this.client.from('public_organizations').select('*').order('name'),
-      this.client.from('public_equipment_types').select('*').order('name')
+      this.client.from('public_equipment_types').select('*').order('name'),
+      this.client.from('administrative_areas').select('area_code,area_level,parent_code,name_th,name_en,center_lat,center_lon').order('area_code'),
+      this.client.from('hazard_types').select('*').eq('active',true).order('sort_order'),
+      this.client.from('risk_levels').select('*').eq('active',true).order('severity'),
+      this.client.from('public_active_risk_areas').select('declaration_id,reference_no,title,description,recommendations,starts_at,ends_at,updated_at,hazard_code,hazard_name_th,hazard_icon,risk_code,risk_name_th,color_hex,severity,area_code,area_level,parent_code,area_name_th,area_name_en')
     ]);
-    const firstError=[eq,org,types].find(r=>r.error)?.error;
+    const firstError=[eq,org,types,areas,hazards,levels,activeRisks].find(r=>r.error)?.error;
     if(firstError)throw firstError;
-    return { equipment:eq.data,organizations:org.data,equipmentTypes:types.data,profiles:[] };
+    return { equipment:eq.data,organizations:org.data,equipmentTypes:types.data,profiles:[],administrativeAreas:areas.data,hazardTypes:hazards.data,riskLevels:levels.data,activeRisks:activeRisks.data,riskDeclarations:[],riskDeclarationAreas:[] };
+  }
+
+  async saveRiskDeclaration(record) {
+    if (this.demo) throw new Error('โหมดสาธิตไม่สามารถบันทึกประกาศได้');
+    const { data,error }=await this.client.rpc('save_risk_declaration',{p_payload:record});
+    if(error)throw error;return data;
+  }
+
+  async approveRiskDeclaration(id) {
+    if (this.demo) throw new Error('โหมดสาธิตไม่สามารถอนุมัติประกาศได้');
+    const { data,error }=await this.client.rpc('approve_risk_declaration',{p_declaration_id:id});
+    if(error)throw error;return data;
   }
 
   async saveEquipment(record) {

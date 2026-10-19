@@ -2,7 +2,7 @@ import { APP_CONFIG, isSupabaseConfigured } from './config.js';
 import { DataService } from './data-service.js';
 
 const service = await new DataService().init();
-const state = { data:{equipment:[],organizations:[],equipmentTypes:[],profiles:[]}, profile:null, chart:null, map:null, baseLayers:null, currentBaseLayer:null, markers:null, boundary:null, searchPoint:null, searchCircle:null, searchMarker:null, searchSource:null, equipmentPage:1, equipmentPageSize:20, importRows:[] };
+const state = { data:{equipment:[],organizations:[],equipmentTypes:[],profiles:[],administrativeAreas:[],hazardTypes:[],riskLevels:[],activeRisks:[],riskDeclarations:[],riskDeclarationAreas:[],organizationAdminAreas:[]}, profile:null, chart:null, map:null, baseLayers:null, currentBaseLayer:null, markers:null, boundary:null, boundaryData:{}, boundaryLevel:2, searchPoint:null, searchCircle:null, searchMarker:null, searchSource:null, equipmentPage:1, equipmentPageSize:20, importRows:[] };
 const $ = (q, root=document) => root.querySelector(q);
 const $$ = (q, root=document) => [...root.querySelectorAll(q)];
 const statusMeta = {
@@ -98,6 +98,7 @@ function bindGlobalEvents() {
   $('#my-org-import-xlsx').addEventListener('click',openImportDialog);
   $('#map-search').addEventListener('input',renderMapMarkers);
   $('#map-basemap').addEventListener('change',e=>setBaseMap(e.target.value));
+  $('#map-boundary-level').addEventListener('change',e=>{state.boundaryLevel=Number(e.target.value);renderBoundaryLayer();});
   $('#map-type-filter').addEventListener('change',renderMapMarkers);
   $('#map-basin-filter').addEventListener('change',renderMapMarkers);
   $('#map-status-filter').addEventListener('change',renderMapMarkers);
@@ -113,21 +114,24 @@ function bindGlobalEvents() {
   $('#import-form').addEventListener('submit',confirmImport);
   $('#export-dashboard-png').addEventListener('click',()=>exportDashboard('png'));
   $('#export-dashboard-pdf').addEventListener('click',()=>exportDashboard('pdf'));
+  $('#add-risk').addEventListener('click',()=>openRiskDialog());
+  $('#risk-form').addEventListener('submit',saveRiskForm);
+  $('#risk-area-level').addEventListener('change',fillRiskAreaOptions);
 }
 
 function switchView(name) {
   document.body.dataset.view=name;
   $$('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${name}`));
   $$('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.view===name));
-  const titles={dashboard:['ศูนย์บัญชาการ','ภาพรวมสถานการณ์'],map:['แผนที่เชิงพื้นที่','ติดตามทรัพยากร'],equipment:['ทะเบียนทรัพยากร','คลังอุปกรณ์'],'my-organization':['พื้นที่ปฏิบัติงาน','ข้อมูล อปท. ของฉัน'],organizations:['การบริหารระบบ','หน่วยงาน อปท.'],users:['การบริหารระบบ','ผู้ใช้งานและสิทธิ์']};
+  const titles={dashboard:['ศูนย์บัญชาการ','ภาพรวมสถานการณ์'],map:['แผนที่เชิงพื้นที่','ติดตามทรัพยากร'],risk:['การเฝ้าระวังเชิงพื้นที่','ประกาศพื้นที่เสี่ยงภัย'],equipment:['ทะเบียนทรัพยากร','คลังอุปกรณ์'],'my-organization':['พื้นที่ปฏิบัติงาน','ข้อมูล อปท. ของฉัน'],organizations:['การบริหารระบบ','หน่วยงาน อปท.'],users:['การบริหารระบบ','ผู้ใช้งานและสิทธิ์']};
   $('#page-kicker').textContent=titles[name][0]; $('#page-title').textContent=titles[name][1];
   $('.sidebar').classList.remove('open');
   if(name==='map'){initMap();setTimeout(()=>state.map.invalidateSize(),80);renderMapMarkers();}
 }
 
 function renderAll() {
-  fillFilters(); renderDashboard(); renderEquipment(); renderMyOrganization(); renderOrganizations(); renderUsers();
-  if(state.map)renderMapMarkers();
+  fillFilters(); renderDashboard(); renderEquipment(); renderMyOrganization(); renderOrganizations(); renderUsers(); renderRiskManagement(); renderRiskLegend();
+  if(state.map){renderMapMarkers();renderBoundaryLayer();}
 }
 
 function getMyOrganizationItems(){return state.data.equipment.filter(x=>x.organization_id===state.profile?.organization_id);}
@@ -398,8 +402,40 @@ function initMap() {
   };
   setBaseMap($('#map-basemap').value||'street');
   state.markers=L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:44}).addTo(state.map);
-  fetch('data/chiangrai-province.json').then(r=>r.json()).then(g=>{state.boundary=L.geoJSON(g,{style:{color:'#0b6bcb',weight:2.5,fillColor:'#0b6bcb',fillOpacity:.035}}).addTo(state.map);state.map.fitBounds(state.boundary.getBounds(),{padding:[15,15]});}).catch(()=>{});
+  loadBoundaryData().then(()=>{renderBoundaryLayer();const province=state.boundaryData[1];if(province){const fit=L.geoJSON(province);state.map.fitBounds(fit.getBounds(),{padding:[15,15]});}}).catch(err=>toast(`โหลดขอบเขตไม่สำเร็จ: ${err.message}`,'error'));
   state.map.on('click',e=>findNearest(e.latlng,'click'));
+  state.map.on('popupopen',()=>$$('[data-risk-area]').forEach(button=>button.onclick=()=>openRiskDialog(null,button.dataset.riskArea)));
+}
+
+async function loadBoundaryData(){
+  if(state.boundaryData[1])return;
+  const files={1:'data/boundaries/chiangrai-province.geojson',2:'data/boundaries/chiangrai-districts.geojson',3:'data/boundaries/chiangrai-subdistricts.geojson'};
+  const results=await Promise.all(Object.values(files).map(async path=>{const response=await fetch(path);if(!response.ok)throw new Error(`${path} (${response.status})`);return response.json();}));
+  Object.keys(files).forEach((level,index)=>state.boundaryData[level]=results[index]);
+}
+
+function risksForArea(areaCode){
+  return (state.data.activeRisks||[]).filter(r=>areaCode.startsWith(r.area_code)||r.area_code.startsWith(areaCode)).sort((a,b)=>Number(b.severity)-Number(a.severity));
+}
+
+function renderBoundaryLayer(){
+  if(!state.map||!state.boundaryData[state.boundaryLevel])return;
+  if(state.boundary&&state.map.hasLayer(state.boundary))state.map.removeLayer(state.boundary);
+  state.boundary=L.geoJSON(state.boundaryData[state.boundaryLevel],{
+    style:feature=>{const risk=risksForArea(feature.properties.area_code)[0];return {color:risk?.color_hex||'#0b6bcb',weight:state.boundaryLevel===1?2.8:1.5,fillColor:risk?.color_hex||'#0b6bcb',fillOpacity:risk?.color_hex?.length?0.28:0.035};},
+    onEachFeature:(feature,layer)=>{
+      const p=feature.properties,risks=risksForArea(p.area_code),top=risks[0];
+      layer.on('click',event=>L.DomEvent.stopPropagation(event.originalEvent));
+      layer.bindTooltip(p.name_th,{sticky:true});
+      layer.bindPopup(`<div class="boundary-popup"><span>${['','จังหวัด','อำเภอ','ตำบล'][p.area_level]}</span><h3>${esc(p.name_th)}</h3>${top?`<div class="risk-popup-level" style="--risk-color:${esc(top.color_hex)}">${esc(top.hazard_icon||'⚠')} ${esc(top.risk_name_th)}</div><b>${esc(top.title)}</b><p>${esc(top.description||'ไม่มีรายละเอียด')}</p><small>มีประกาศที่กำลังมีผล ${risks.length.toLocaleString('th-TH')} รายการ</small>`:'<p>ยังไม่มีประกาศความเสี่ยงที่กำลังมีผล</p>'}${state.profile?.role!=='public'?`<button class="btn primary risk-popup-add" data-risk-area="${esc(p.area_code)}">กำหนดพื้นที่เสี่ยง</button>`:''}</div>`);
+    }
+  }).addTo(state.map);
+  state.boundary.bringToBack();
+}
+
+function renderRiskLegend(){
+  const root=$('#risk-legend-items');if(!root)return;
+  root.innerHTML=(state.data.riskLevels||[]).map(level=>`<span><i style="background:${esc(level.color_hex)}"></i>${esc(level.name_th)}</span>`).join('')||'<span>ยังไม่มีข้อมูลระดับความเสี่ยง</span>';
 }
 
 function setBaseMap(name){
@@ -415,6 +451,56 @@ function distanceKm(a,b){const R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lng
 function findNearest(point,source='click'){state.searchPoint=point;state.searchSource=source;const radius=Number($('#radius-input').value)||15;if(state.searchCircle)state.map.removeLayer(state.searchCircle);if(state.searchMarker)state.map.removeLayer(state.searchMarker);const gps=source==='gps',label=gps?'ตำแหน่งของฉัน':'จุดที่เลือก',symbol=gps?'◎':'📍',color=gps?'#0b6bcb':'#e77922';state.searchCircle=L.circle(point,{radius:radius*1000,color,fillColor:color,fillOpacity:.08,weight:2}).addTo(state.map);const originIcon=L.divIcon({className:'search-origin-wrap',html:`<div class="search-origin ${gps?'gps':'clicked'}"><span>${symbol}</span><b>${label}</b></div>`,iconSize:[126,46],iconAnchor:[20,38]});state.searchMarker=L.marker(point,{icon:originIcon,zIndexOffset:3000,keyboard:false}).addTo(state.map);const list=filteredMapItems().map(x=>({...x,distance:distanceKm(point,{lat:Number(x.latitude),lng:Number(x.longitude)})})).filter(x=>x.distance<=radius).sort((a,b)=>a.distance-b.distance).slice(0,8);$('#nearest-list').innerHTML=list.length?list.map((x,i)=>`<button class="nearest-item" data-nearest="${x.id}"><span>${i+1}</span><div><b>${esc(x.name)}</b><small>${esc(getOrg(x.organization_id)?.short_name||'-')} · ${statusMeta[x.status]?.label}</small></div><strong>${x.distance.toFixed(1)} กม.</strong></button>`).join(''):`<div class="empty">ไม่พบอุปกรณ์ในรัศมี ${radius} กม.</div>`;$('#nearest-panel').classList.add('open');$$('[data-nearest]').forEach(b=>b.addEventListener('click',()=>{const x=state.data.equipment.find(v=>v.id===b.dataset.nearest);state.map.flyTo([x.latitude,x.longitude],15);}));}
 function useGps(){if(!navigator.geolocation)return toast('เบราว์เซอร์นี้ไม่รองรับ GPS','error');navigator.geolocation.getCurrentPosition(p=>{const ll=L.latLng(p.coords.latitude,p.coords.longitude);state.map.flyTo(ll,13);findNearest(ll,'gps');},e=>toast(`ไม่สามารถอ่าน GPS: ${e.message}`,'error'),{enableHighAccuracy:true,timeout:10000});}
 function clearMapSearch(){$('#map-search').value='';$('#map-basin-filter').value='';$('#map-type-filter').value='';$('#map-status-filter').value='';if(state.searchCircle)state.map.removeLayer(state.searchCircle);if(state.searchMarker)state.map.removeLayer(state.searchMarker);state.searchCircle=null;state.searchMarker=null;state.searchPoint=null;state.searchSource=null;$('#nearest-panel').classList.remove('open');renderMapMarkers();}
+
+const riskStatusLabel={draft:'ฉบับร่าง',submitted:'รออนุมัติ',active:'กำลังมีผล',expired:'สิ้นสุดแล้ว',cancelled:'ยกเลิก'};
+function localDateTime(value){if(!value)return '';const d=new Date(value);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);}
+function riskAreaCode(declarationId){return state.data.riskDeclarationAreas?.find(x=>x.declaration_id===declarationId)?.area_code||'';}
+function riskAreaName(code){return state.data.administrativeAreas?.find(x=>x.area_code===code)?.name_th||code||'-';}
+function canEditRisk(item){return canManageAll()||(item.organization_id===state.profile?.organization_id&&['draft','submitted'].includes(item.status));}
+
+function renderRiskManagement(){
+  const items=state.data.riskDeclarations||[],active=items.filter(x=>x.status==='active').length,pending=items.filter(x=>x.status==='submitted').length,drafts=items.filter(x=>x.status==='draft').length;
+  const summary=$('#risk-summary');if(!summary)return;
+  summary.innerHTML=[['ประกาศทั้งหมด',items.length],['กำลังมีผล',active],['รออนุมัติ',pending],['ฉบับร่าง',drafts]].map(([label,value])=>`<article><span>${label}</span><strong>${Number(value).toLocaleString('th-TH')}</strong></article>`).join('');
+  $('#risk-table').innerHTML=table(['ประกาศ / ประเภทภัย','พื้นที่','ระดับ','ช่วงเวลามีผล','สถานะ',''],items.map(item=>{
+    const code=riskAreaCode(item.id),actions=[];
+    if(canEditRisk(item))actions.push(`<button class="row-action" data-edit-risk="${item.id}">แก้ไข</button>`);
+    if(canManageAll()&&item.status==='submitted')actions.push(`<button class="row-action approve-risk" data-approve-risk="${item.id}">อนุมัติ</button>`);
+    return [`<b>${esc(item.title)}</b><small>${esc(item.hazard_types?.icon||'⚠')} ${esc(item.hazard_types?.name_th||'-')}</small>`,`<b>${esc(riskAreaName(code))}</b><small>${esc(code)}</small>`,`<span class="risk-level-pill" style="--risk-color:${esc(item.risk_levels?.color_hex||'#64748b')}">${esc(item.risk_levels?.name_th||'-')}</span>`,`<b>${formatDate(item.starts_at)}</b><small>${item.ends_at?`ถึง ${formatDate(item.ends_at)}`:'จนกว่าจะมีการเปลี่ยนแปลง'}</small>`,`<span class="risk-status ${esc(item.status)}">${esc(riskStatusLabel[item.status]||item.status)}</span>`,actions.join(' ')];
+  }),'ยังไม่มีประกาศพื้นที่เสี่ยงภัย');
+  $$('[data-edit-risk]').forEach(button=>button.onclick=()=>openRiskDialog(items.find(x=>x.id===button.dataset.editRisk)));
+  $$('[data-approve-risk]').forEach(button=>button.onclick=()=>approveRisk(button.dataset.approveRisk));
+}
+
+function fillRiskAreaOptions(selected=''){
+  const level=Number($('#risk-area-level').value),assigned=(state.data.organizationAdminAreas||[]).filter(x=>x.organization_id===state.profile?.organization_id).map(x=>x.area_code),areas=(state.data.administrativeAreas||[]).filter(x=>x.area_level===level&&(canManageAll()||assigned.some(code=>x.area_code.startsWith(code))));
+  $('#risk-area').innerHTML=areas.map(x=>`<option value="${esc(x.area_code)}" ${x.area_code===selected?'selected':''}>${esc(x.name_th)} (${esc(x.area_code)})</option>`).join('');
+}
+
+function openRiskDialog(item=null,areaCode=''){
+  const dialog=$('#risk-dialog'),currentCode=areaCode||riskAreaCode(item?.id),currentArea=state.data.administrativeAreas?.find(x=>x.area_code===currentCode);
+  $('#risk-dialog-title').textContent=item?'แก้ไขประกาศ':'สร้างประกาศพื้นที่เสี่ยง';
+  $('#risk-id').value=item?.id||'';$('#risk-title').value=item?.title||'';
+  $('#risk-hazard').innerHTML=(state.data.hazardTypes||[]).map(x=>`<option value="${x.id}" ${x.id===item?.hazard_type_id?'selected':''}>${esc(x.icon||'⚠')} ${esc(x.name_th)}</option>`).join('');
+  $('#risk-level').innerHTML=(state.data.riskLevels||[]).map(x=>`<option value="${x.id}" ${Number(x.id)===Number(item?.risk_level_id)?'selected':''}>${esc(x.name_th)}</option>`).join('');
+  $('#risk-area-level').value=String(currentArea?.area_level||3);fillRiskAreaOptions(currentCode);
+  $('#risk-start').value=localDateTime(item?.starts_at||new Date());$('#risk-end').value=localDateTime(item?.ends_at);
+  $('#risk-description').value=item?.description||'';$('#risk-recommendations').value=item?.recommendations||'';
+  $('#risk-status').value=['draft','submitted'].includes(item?.status)?item.status:'draft';
+  dialog.showModal();
+}
+
+async function saveRiskForm(event){
+  event.preventDefault();if(event.submitter?.value==='cancel'){$('#risk-dialog').close();return;}
+  const form=Object.fromEntries(new FormData(event.target));
+  const payload={id:form.id||null,title:form.title,hazard_type_id:form.hazard_type_id,risk_level_id:Number(form.risk_level_id),area_code:form.area_code,starts_at:new Date(form.starts_at).toISOString(),ends_at:form.ends_at?new Date(form.ends_at).toISOString():null,description:form.description||null,recommendations:form.recommendations||null,status:form.status,organization_id:state.profile.organization_id};
+  setLoading(true);try{await service.saveRiskDeclaration(payload);$('#risk-dialog').close();toast('บันทึกประกาศเรียบร้อย');await reloadData();}catch(err){toast(`บันทึกไม่สำเร็จ: ${err.message}`,'error');}finally{setLoading(false);}
+}
+
+async function approveRisk(id){
+  if(!confirm('ยืนยันการอนุมัติและเผยแพร่ประกาศนี้หรือไม่'))return;
+  setLoading(true);try{await service.approveRiskDeclaration(id);toast('อนุมัติประกาศเรียบร้อย');await reloadData();}catch(err){toast(`อนุมัติไม่สำเร็จ: ${err.message}`,'error');}finally{setLoading(false);}
+}
 
 function input(name,label,value='',type='text',attrs=''){return `<label>${label}<input name="${name}" type="${type}" value="${esc(value)}" ${attrs}></label>`;}
 function select(name,label,options,value='',attrs=''){return `<label>${label}<select name="${name}" ${attrs}>${options.map(([v,l])=>`<option value="${v}" ${String(v)===String(value)?'selected':''}>${esc(l)}</option>`).join('')}</select></label>`;}
