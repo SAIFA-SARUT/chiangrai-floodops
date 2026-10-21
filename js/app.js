@@ -456,7 +456,10 @@ const riskStatusLabel={draft:'ฉบับร่าง',submitted:'รออน�
 function localDateTime(value){if(!value)return '';const d=new Date(value);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);}
 function riskAreaCode(declarationId){return state.data.riskDeclarationAreas?.find(x=>x.declaration_id===declarationId)?.area_code||'';}
 function riskAreaName(code){return state.data.administrativeAreas?.find(x=>x.area_code===code)?.name_th||code||'-';}
-function canEditRisk(item){return canManageAll()||(item.organization_id===state.profile?.organization_id&&['draft','submitted'].includes(item.status));}
+// Interim UI safeguard: submitted notices are locked against editing.
+// Database RLS/RPC enforcement is required before production deployment.
+function canEditRisk(item){return item?.status==='draft'&&(canManageAll()||item.organization_id===state.profile?.organization_id);}
+function canApproveRisk(item){return item?.status==='submitted'&&canManageAll()&&Boolean(state.profile?.id)&&item.created_by!==state.profile.id;}
 
 function renderRiskManagement(){
   const items=state.data.riskDeclarations||[],active=items.filter(x=>x.status==='active').length,pending=items.filter(x=>x.status==='submitted').length,drafts=items.filter(x=>x.status==='draft').length;
@@ -465,7 +468,7 @@ function renderRiskManagement(){
   $('#risk-table').innerHTML=table(['ประกาศ / ประเภทภัย','พื้นที่','ระดับ','ช่วงเวลามีผล','สถานะ',''],items.map(item=>{
     const code=riskAreaCode(item.id),actions=[];
     if(canEditRisk(item))actions.push(`<button class="row-action" data-edit-risk="${item.id}">แก้ไข</button>`);
-    if(canManageAll()&&item.status==='submitted')actions.push(`<button class="row-action approve-risk" data-approve-risk="${item.id}">อนุมัติ</button>`);
+    if(canApproveRisk(item))actions.push(`<button class="row-action approve-risk" data-approve-risk="${item.id}">อนุมัติ</button>`);
     return [`<b>${esc(item.title)}</b><small>${esc(item.hazard_types?.icon||'⚠')} ${esc(item.hazard_types?.name_th||'-')}</small>`,`<b>${esc(riskAreaName(code))}</b><small>${esc(code)}</small>`,`<span class="risk-level-pill" style="--risk-color:${esc(item.risk_levels?.color_hex||'#64748b')}">${esc(item.risk_levels?.name_th||'-')}</span>`,`<b>${formatDate(item.starts_at)}</b><small>${item.ends_at?`ถึง ${formatDate(item.ends_at)}`:'จนกว่าจะมีการเปลี่ยนแปลง'}</small>`,`<span class="risk-status ${esc(item.status)}">${esc(riskStatusLabel[item.status]||item.status)}</span>`,actions.join(' ')];
   }),'ยังไม่มีประกาศพื้นที่เสี่ยงภัย');
   $$('[data-edit-risk]').forEach(button=>button.onclick=()=>openRiskDialog(items.find(x=>x.id===button.dataset.editRisk)));
@@ -498,6 +501,8 @@ async function saveRiskForm(event){
 }
 
 async function approveRisk(id){
+  const notice=(state.data.riskDeclarations||[]).find(item=>item.id===id);
+  if(!canApproveRisk(notice)){toast('ไม่มีสิทธิ์อนุมัติประกาศนี้ หรือเป็นผู้จัดทำประกาศเอง','error');return;}
   if(!confirm('ยืนยันการอนุมัติและเผยแพร่ประกาศนี้หรือไม่'))return;
   setLoading(true);try{await service.approveRiskDeclaration(id);toast('อนุมัติประกาศเรียบร้อย');await reloadData();}catch(err){toast(`อนุมัติไม่สำเร็จ: ${err.message}`,'error');}finally{setLoading(false);}
 }
